@@ -25,6 +25,20 @@
 #include "hardware/clocks.h"
 #endif
 
+/* The generated configuration, so a board source can leave out what the project
+ * did not ask for. The program carries this header's directory; a board built
+ * on its own may not have it, which is what the guard is for. */
+#if defined(__has_include)
+#  if __has_include("autoconf.h")
+#    include "autoconf.h"
+#  endif
+#endif
+
+#if defined(CONFIG_RH_HAL_ONEWIRE) && CONFIG_RH_HAL_ONEWIRE
+#include "robohub/hal/onewire.h"
+#include "pico_onewire.h"
+#endif
+
 /* -------------------------------------------------------------------------- */
 /*  HAL instances                                                             */
 /* -------------------------------------------------------------------------- */
@@ -50,6 +64,12 @@ static RoboHubTimer system_timer = {
     .delay_ms = pico_timer_delay_ms,
     .delay_us = pico_timer_delay_us,
 };
+
+#if defined(CONFIG_RH_HAL_ONEWIRE) && CONFIG_RH_HAL_ONEWIRE
+/* One software 1-Wire bus on RH_ONEWIRE0_PIN. It is filled in at registration,
+ * because the pin is the board's and the interface has to name it. */
+static RoboHubPicoOneWire onewire0;
+#endif
 
 /* -------------------------------------------------------------------------- */
 /*  Board init                                                                */
@@ -77,4 +97,12 @@ void bsp_register_hals(void)
 {
     robohub_register_gpio("user_led", &led_gpio);
     robohub_register_timer("system_timer", &system_timer);
+
+#if defined(CONFIG_RH_HAL_ONEWIRE) && CONFIG_RH_HAL_ONEWIRE
+    /* The bus a device driver looks up by name. A project that fits a 1-Wire
+     * part selects the HAL, and the board is where the pin it is wired to is
+     * known. */
+    pico_onewire_create(&onewire0, "onewire0", RH_ONEWIRE0_PIN);
+    robohub_register_onewire("onewire0", &onewire0.interface);
+#endif
 }

@@ -39,6 +39,13 @@ config RH_HAL_RS485
     help
       Enable RS485 HAL implementation.
 
+config RH_HAL_ONEWIRE
+    bool "1-Wire HAL"
+    default n
+    help
+      Enable the software 1-Wire HAL implementation. A DS18B20 temperature
+      module and anything else on a 1-Wire bus selects it.
+
 config RH_CONSOLE_USB
     bool "Console over USB"
     default n

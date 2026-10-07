@@ -70,6 +70,14 @@ extern "C" {
 #define RH_SPI0_CSN_PIN         17
 
 /* -------------------------------------------------------------------------- */
+/*  1-Wire                                                                    */
+/* -------------------------------------------------------------------------- */
+/* A 1-Wire bus here is a software one on one pin, so any free GPIO will do.
+ * GP28 is free on the Pico 2W and carries no peripheral assignment; it is also
+ * an ADC pin, which costs nothing when it is used as a digital line. */
+#define RH_ONEWIRE0_PIN         28
+
+/* -------------------------------------------------------------------------- */
 /*  Board functions                                                           */
 /* -------------------------------------------------------------------------- */
 void bsp_init(void);

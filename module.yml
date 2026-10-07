@@ -66,6 +66,9 @@ build:
     - config: RH_HAL_RS485
       sources:
         - src/hal/pico_rs485.c
+    - config: RH_HAL_ONEWIRE
+      sources:
+        - src/hal/pico_onewire.c
 
   sources:
     - src/platform/pico_console.c

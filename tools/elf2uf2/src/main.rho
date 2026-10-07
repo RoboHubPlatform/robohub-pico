@@ -1,0 +1,354 @@
+module elf2uf2
+
+// elf2uf2 — convert an ELF firmware image to UF2 for an RP2 board.
+//
+// Reads the ELF, lays its loadable segments out as flash pages, and writes one
+// UF2 block per page. When a mount point is given the file is copied to it, so
+// the bootrom programs the board.
+//
+// The tool is the platform's own: rho-flash orchestrates, this converts and
+// copies, and the JSON on stdout is what rho-flash reads back.
+
+extern fn read_file(path: string) -> [u8]
+extern fn write_file(path: string, data: [u8])
+extern fn get_args() -> string
+
+// UF2 block fields, at the offsets the format fixes.
+//
+// The header has *two* start words, and a bootrom checks both before it will
+// look at anything else. Writing only the first shifts every field after it by
+// four bytes, which reads as a block whose second magic is wrong — a file that
+// parses as UF2 to a reader that checks one magic and is refused by the part
+// that checks two.
+const UF2_MAGIC_START0: u32 = 0x0A324655
+const UF2_MAGIC_START1: u32 = 0x9E5D5157
+const UF2_MAGIC_END: u32 = 0x0AB16F30
+const UF2_FLAG_FAMILY: u32 = 0x00002000
+const UF2_BLOCK_SIZE: u32 = 512
+// The payload is a flash page, not the 476 bytes the format allows. The RP2
+// bootrom programs flash a page at a time and accepts only blocks that carry
+// exactly one, so a larger payload is a file it reads and refuses.
+const UF2_PAYLOAD: u32 = 256
+
+// ELF header offsets (32-bit, little-endian).
+const ELF_MAGIC: u32 = 0x464C457F
+const ELF_PHOFF: u32 = 28
+const ELF_PHENTSIZE: u32 = 42
+const ELF_PHNUM: u32 = 44
+
+// Program header fields (32-bit).
+const PH_TYPE: u32 = 0
+const PH_OFFSET: u32 = 4
+const PH_VADDR: u32 = 8
+const PH_PADDR: u32 = 12
+const PH_FILESZ: u32 = 16
+const PT_LOAD: u32 = 1
+
+// read_u32_le reads a little-endian 32-bit word from a byte array.
+fn read_u32_le(data: [u8], offset: u32) -> u32 {
+    if offset + 3 >= len(data) {
+        return 0
+    }
+    return u32(data[offset]) | (u32(data[offset + 1]) << 8) | (u32(data[offset + 2]) << 16) | (u32(data[offset + 3]) << 24)
+}
+
+// read_u16_le reads a little-endian 16-bit word from a byte array.
+fn read_u16_le(data: [u8], offset: u32) -> u16 {
+    if offset + 1 >= len(data) {
+        return 0
+    }
+    return u16(data[offset]) | (u16(data[offset + 1]) << 8)
+}
+
+// write_u32_le writes a little-endian 32-bit word into a byte array.
+fn write_u32_le(data: [u8], offset: u32, value: u32) {
+    data[offset] = u8(value & 0xFF)
+    data[offset + 1] = u8((value >> 8) & 0xFF)
+    data[offset + 2] = u8((value >> 16) & 0xFF)
+    data[offset + 3] = u8((value >> 24) & 0xFF)
+}
+
+// align_down and align_up round an address to a payload boundary.
+fn align_down(value: u32, boundary: u32) -> u32 {
+    return value - (value % boundary)
+}
+
+fn align_up(value: u32, boundary: u32) -> u32 {
+    var remainder: u32 = value % boundary
+    if remainder == 0 {
+        return value
+    }
+    return value + (boundary - remainder)
+}
+
+// append_block copies one 512-byte block onto the output.
+fn append_block(out: [u8], block: [u8]) -> [u8] {
+    var i: u32 = 0
+    while i < UF2_BLOCK_SIZE {
+        out = append(out, block[i])
+        i = i + 1
+    }
+    return out
+}
+
+// make_block builds one UF2 block for a flash page.
+//
+// The page is assembled from every segment that covers part of it, because two
+// of them can share one: a program's text and its initialised data meet inside
+// a page as often as not, and a block built from one of them alone would drop
+// the other's bytes — while two blocks naming the same page are two blocks the
+// bootrom refuses as overlapping. Bytes no segment covers are zero, which is
+// what flash reads there.
+//
+// The family is the board's, not this program's: the bootrom compares it with
+// the part it is running on and refuses a file that names another.
+fn make_block(page: u32, block_no: u32, total: u32, source: [u8], seg_addrs: [u32], seg_sizes: [u32], seg_offsets: [u32], family: u32) -> [u8] {
+    var block: [u8]
+    var i: u32 = 0
+    while i < UF2_BLOCK_SIZE {
+        block = append(block, 0)
+        i = i + 1
+    }
+    write_u32_le(block, 0, UF2_MAGIC_START0)
+    write_u32_le(block, 4, UF2_MAGIC_START1)
+    write_u32_le(block, 8, UF2_FLAG_FAMILY)
+    write_u32_le(block, 12, page)
+    write_u32_le(block, 16, UF2_PAYLOAD)
+    write_u32_le(block, 20, block_no)
+    write_u32_le(block, 24, total)
+    write_u32_le(block, 28, family)
+    i = 0
+    while i < UF2_PAYLOAD {
+        var address: u32 = page + i
+        var s: u32 = 0
+        while s < len(seg_addrs) {
+            if address >= seg_addrs[s] && address < seg_addrs[s] + seg_sizes[s] {
+                block[32 + i] = source[seg_offsets[s] + (address - seg_addrs[s])]
+            }
+            s = s + 1
+        }
+        i = i + 1
+    }
+    write_u32_le(block, 508, UF2_MAGIC_END)
+    return block
+}
+
+// convert reads the ELF and writes the UF2. It returns the block count, or 0
+// when the input is not a usable ELF.
+fn convert(input_path: string, output_path: string, family: u32) -> u32 {
+    var data: [u8] = read_file(input_path)
+    if len(data) < 52 {
+        print("{\"status\":\"error\",\"error\":\"input too small for an ELF header\"}\n")
+        return 0
+    }
+    if read_u32_le(data, 0) != ELF_MAGIC {
+        print("{\"status\":\"error\",\"error\":\"input is not an ELF file\"}\n")
+        return 0
+    }
+    var phoff: u32 = read_u32_le(data, ELF_PHOFF)
+    var phentsize: u32 = read_u16_le(data, ELF_PHENTSIZE) as u32
+    var phnum: u32 = read_u16_le(data, ELF_PHNUM) as u32
+
+    // Collect the loadable segments before emitting anything: a page is built
+    // from all of them, so they have to be known before the first one is.
+    var seg_addrs: [u32]
+    var seg_sizes: [u32]
+    var seg_offsets: [u32]
+    var i: u32 = 0
+    while i < phnum {
+        var base: u32 = phoff + i * phentsize
+        if read_u32_le(data, base + PH_TYPE) == PT_LOAD {
+            var size: u32 = read_u32_le(data, base + PH_FILESZ)
+            if size > 0 {
+                // The physical address is where the bytes live in storage, which
+                // is what a UF2 block names. A segment that runs in RAM —
+                // `.data`, copied up at startup — has a virtual address in RAM
+                // and a physical one in flash, and a block written to the RAM
+                // address is one the bootrom has nowhere to put.
+                var address: u32 = read_u32_le(data, base + PH_PADDR)
+                if address == 0 {
+                    address = read_u32_le(data, base + PH_VADDR)
+                }
+                seg_addrs = append(seg_addrs, address)
+                seg_sizes = append(seg_sizes, size)
+                seg_offsets = append(seg_offsets, read_u32_le(data, base + PH_OFFSET))
+            }
+        }
+        i = i + 1
+    }
+    if len(seg_addrs) == 0 {
+        print("{\"status\":\"error\",\"error\":\"no loadable segments\"}\n")
+        return 0
+    }
+
+    var first_page: u32 = 0xFFFFFFFF
+    var last_page: u32 = 0
+    i = 0
+    while i < len(seg_addrs) {
+        var start: u32 = align_down(seg_addrs[i], UF2_PAYLOAD)
+        var end: u32 = align_up(seg_addrs[i] + seg_sizes[i], UF2_PAYLOAD)
+        if start < first_page {
+            first_page = start
+        }
+        if end > last_page {
+            last_page = end
+        }
+        i = i + 1
+    }
+    var total: u32 = (last_page - first_page) / UF2_PAYLOAD
+
+    var out: [u8]
+    var block_no: u32 = 0
+    var page: u32 = first_page
+    while page < last_page {
+        var block: [u8] = make_block(page, block_no, total, data, seg_addrs, seg_sizes, seg_offsets, family)
+        out = append_block(out, block)
+        block_no = block_no + 1
+        page = page + UF2_PAYLOAD
+    }
+
+    write_file(output_path, out)
+    print("{\"status\":\"ok\",\"uf2\":\"")
+    print(output_path)
+    print("\",\"blocks\":")
+    print(string.from_i32(total as i32))
+    print(",\"bytes\":")
+    print(string.from_i32(len(out) as i32))
+    print("}\n")
+    return total
+}
+
+// find_mount returns the RP2350 mass-storage path when one is mounted, or an
+// empty string. The bootrom publishes the drive under one of a few names.
+fn find_mount() -> string {
+    if len(read_file("/media/RP2350/INFO_UF2.TXT")) > 0 {
+        return "/media/RP2350"
+    }
+    if len(read_file("/media/RPI-RP2/INFO_UF2.TXT")) > 0 {
+        return "/media/RPI-RP2"
+    }
+    if len(read_file("/run/media/RP2350/INFO_UF2.TXT")) > 0 {
+        return "/run/media/RP2350"
+    }
+    return ""
+}
+
+// parse_arg walks the argument string and returns the nth space-separated word.
+fn parse_arg(args: string, index: u32) -> string {
+    var word: u32 = 0
+    var start: u32 = 0
+    var i: u32 = 0
+    while i <= len(args) {
+        if i == len(args) || args[i] == 0x20 {
+            if i > start {
+                if word == index {
+                    return str_slice(args, start, i - start)
+                }
+                word = word + 1
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// arg_count returns how many space-separated words the argument string holds.
+fn arg_count(args: string) -> u32 {
+    var count: u32 = 0
+    var start: u32 = 0
+    var i: u32 = 0
+    while i <= len(args) {
+        if i == len(args) || args[i] == 0x20 {
+            if i > start {
+                count = count + 1
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    return count
+}
+
+// hex_digit returns the value of one hexadecimal digit, or -1 when the byte is
+// not one.
+fn hex_digit(c: u8) -> i32 {
+    if c >= 0x30 && c <= 0x39 {
+        return (c as i32) - 0x30
+    }
+    if c >= 0x61 && c <= 0x66 {
+        return (c as i32) - 0x61 + 10
+    }
+    if c >= 0x41 && c <= 0x46 {
+        return (c as i32) - 0x41 + 10
+    }
+    return -1
+}
+
+// parse_hex reads a hexadecimal number, with or without a 0x prefix. The family
+// IDs are written the way the vendor's headers write them.
+fn parse_hex(text: string) -> u32 {
+    var value: u32 = 0
+    var i: u32 = 0
+    while i < len(text) {
+        var digit: i32 = hex_digit(text[i])
+        if digit >= 0 {
+            value = value * 16 + (digit as u32)
+        }
+        i = i + 1
+    }
+    return value
+}
+
+fn main() {
+    var args: string = get_args()
+    var input: string = parse_arg(args, 0)
+    if input == "" {
+        print("{\"status\":\"error\",\"error\":\"usage: elf2uf2 <input.elf> [output.uf2] [--mount <path>] --family-id <hex>\"}\n")
+        return
+    }
+    var output: string = parse_arg(args, 1)
+    if output == "" || output == "--mount" || output == "--family-id" {
+        output = input + ".uf2"
+    }
+    var mount: string = ""
+    var family_text: string = ""
+    var i: u32 = 0
+    var count: u32 = arg_count(args)
+    while i < count {
+        if parse_arg(args, i) == "--mount" {
+            mount = parse_arg(args, i + 1)
+        }
+        if parse_arg(args, i) == "--family-id" {
+            family_text = parse_arg(args, i + 1)
+        }
+        i = i + 1
+    }
+    if family_text == "" {
+        print("{\"status\":\"error\",\"error\":\"--family-id is required: the board's UF2 family ID\"}\n")
+        return
+    }
+    var family: u32 = parse_hex(family_text)
+
+    print("elf2uf2: converting ")
+    print(input)
+    print(" -> ")
+    print(output)
+    print("\n")
+
+    var blocks: u32 = convert(input, output, family)
+    if blocks == 0 {
+        return
+    }
+
+    if mount == "" {
+        mount = find_mount()
+    }
+    if mount != "" {
+        var target: string = mount + "/firmware.uf2"
+        print("elf2uf2: writing ")
+        print(target)
+        print("\n")
+        write_file(target, read_file(output))
+    }
+}

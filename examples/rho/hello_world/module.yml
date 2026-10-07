@@ -1,0 +1,67 @@
+#
+# hello_world — a Rho application for the Pico 2W board.
+#
+# The first program that runs on real hardware rather than a host.
+# The application declares which presets it is written for, and the
+# platform that implements them declares what those presets are.
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: hello-world
+  type: module
+  version: 0.1.0
+  description: >
+    Blinks the user LED of a Pico 2W board and writes a line to the UART
+    console. The smallest program that proves the whole path works.
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-10-06"
+
+main: src/main.rho
+
+build:
+  language: c
+  output_dir: output
+  presets:
+    - pico2w
+
+depends:
+  - name: robohub-pico
+    type: c
+    path: /home/miraur/projects/robohub-pico
+    git: https://github.com/RoboHubPlatform/robohub-pico
+    branch: main
+
+c_connection:
+  library: "robohub-pico"
+  headers:
+    - platform.h
+    - console.h
+    - gpio.h
+    - timer.h
+    - error.h
+    - types.h
+    - registry.h
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+  values_file: project.conf
+
+package:
+  kind: library
+  binary: false
+
+metadata:
+  tags:
+    - example
+    - pico
+    - rp2350
+    - baremetal
+  stability: experimental
+  visibility: public

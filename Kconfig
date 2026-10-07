@@ -1,0 +1,51 @@
+# robohub-pico Kconfig
+# Platform-level configuration for Pico boards.
+
+menu "RoboHub Pico Platform"
+
+config RH_HAL_GPIO
+    bool "GPIO HAL"
+    default y
+    help
+      Enable GPIO peripheral HAL implementation.
+
+config RH_HAL_I2C
+    bool "I2C HAL"
+    default y
+    help
+      Enable I2C peripheral HAL implementation.
+
+config RH_HAL_SPI
+    bool "SPI HAL"
+    default y
+    help
+      Enable SPI peripheral HAL implementation.
+
+config RH_HAL_UART
+    bool "UART HAL"
+    default y
+    help
+      Enable UART peripheral HAL implementation.
+
+config RH_HAL_TIMER
+    bool "Timer HAL"
+    default y
+    help
+      Enable Timer HAL implementation.
+
+config RH_HAL_RS485
+    bool "RS485 HAL"
+    default n
+    help
+      Enable RS485 HAL implementation.
+
+config RH_CONSOLE_USB
+    bool "Console over USB"
+    default n
+    help
+      Send the console over the board's own USB port as a CDC serial device,
+      instead of the UART pins. A host then sees a serial port on the same
+      cable that flashes the board, so output needs no adapter.
+      A board whose USB is used for something else leaves this off.
+
+endmenu

@@ -1,0 +1,119 @@
+#
+# pico2w — Raspberry Pi Pico 2W board support.
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: pico2w
+  type: platform-board
+  version: 0.1.0
+  description: >
+    Board support package for the Raspberry Pi Pico 2W (RP2350).
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-10-06"
+
+hardware:
+  presets: presets/
+  target: target.json
+
+vendor:
+  dir: ../../vendor
+  repos:
+    - name: pico-sdk
+      path: pico-sdk
+      git: https://github.com/raspberrypi/pico-sdk.git
+      branch: develop
+
+build:
+  language: c
+  standard: c11
+  include_dirs:
+    - bsp/
+  sources:
+    - bsp/bsp.c
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+
+package:
+  kind: library
+  binary: false
+
+board:
+  designation: PICO_2W
+  mcu: RP2350
+  family: RP2350
+  core: Cortex-M33
+  preset: rp2350
+  target: rp2350
+  connectors:
+    - name: GPIO
+      pins: 1-26
+    - name: QWIIC
+    - name: DEBUG_SWD
+  programmer:
+    tool: picotool
+    interface: swd
+    protocol: cmsis-dap
+  debug_interface: swd
+  flash:
+    tool: elf2uf2
+    command: "elf2uf2 {binary} --family-id 0xe48bff59"
+  pins:
+    user_led:
+      gpio: 15
+      active_high: true
+    uart0_tx:
+      gpio: 0
+    uart0_rx:
+      gpio: 1
+    uart1_tx:
+      gpio: 4
+    uart1_rx:
+      gpio: 5
+  peripherals:
+    uart:
+      - name: uart0
+        instance: uart0
+        tx: 0
+        rx: 1
+      - name: uart1
+        instance: uart1
+        tx: 4
+        rx: 5
+    i2c:
+      - name: i2c0
+        instance: i2c0
+        sda: 16
+        scl: 17
+      - name: i2c1
+        instance: i2c1
+        sda: 18
+        scl: 19
+    spi:
+      - name: spi0
+        instance: spi0
+        tx: 19
+        rx: 20
+        sck: 18
+        csn: 17
+    adc:
+      - name: adc0
+        instance: adc0
+        channel: 0
+        gpio: 26
+
+metadata:
+  tags:
+    - board
+    - pico
+    - rp2350
+    - robohub
+  stability: experimental
+  visibility: public

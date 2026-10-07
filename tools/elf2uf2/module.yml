@@ -1,0 +1,21 @@
+#
+# @file module.yml
+# @brief elf2uf2 — convert ELF to UF2 for RP2350 boards
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: elf2uf2
+  type: rho
+  version: 0.1.0
+  description: Converts ELF firmware to UF2 format for RP2350 boards
+
+main: src/main.rho
+
+build:
+  language: go
+  output_dir: output
+  targets:
+    - go

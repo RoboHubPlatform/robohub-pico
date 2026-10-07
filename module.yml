@@ -1,0 +1,118 @@
+#
+# robohub-pico — RoboHub platform for Raspberry Pi Pico boards.
+#
+# Implements the robohub-common HAL interfaces for RP2040 and RP2350
+# microcontrollers using the official Raspberry Pi Pico SDK.
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: robohub-pico
+  type: platform
+  version: 0.1.0
+  description: >
+    RoboHub platform for Raspberry Pi Pico (RP2040) and Pico 2/2W (RP2350).
+    Implements the robohub-common HAL contracts using the Pico SDK.
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-10-06"
+
+platform: robohub
+
+hardware:
+  boards: boards/
+  supported:
+    - pico2w
+  presets: presets/
+  targets: targets/
+  kconfig: kconfig/
+
+vendor:
+  dir: vendor
+
+build:
+  language: c
+  standard: c11
+
+  defines:
+    - PICO_NO_HARDWARE=0
+
+  include_dirs:
+    - include/
+    - include/robohub/
+    - include/robohub/hal/
+    - include/robohub/platform/
+    - include/robohub/drivers/
+
+  guarded_sources:
+    - config: RH_HAL_GPIO
+      sources:
+        - src/hal/pico_gpio.c
+    - config: RH_HAL_I2C
+      sources:
+        - src/hal/pico_i2c.c
+    - config: RH_HAL_SPI
+      sources:
+        - src/hal/pico_spi.c
+    - config: RH_HAL_UART
+      sources:
+        - src/hal/pico_uart.c
+    - config: RH_HAL_TIMER
+      sources:
+        - src/hal/pico_timer.c
+    - config: RH_HAL_RS485
+      sources:
+        - src/hal/pico_rs485.c
+
+  sources:
+    - src/platform/pico_console.c
+    - src/platform/pico_fault.c
+    - src/platform/pico_platform.c
+    - src/platform/pico_tick.c
+
+depends:
+  - name: robohub-common
+    type: c
+    path: /home/miraur/projects/robohub-common
+    git: https://github.com/RoboHubPlatform/robohub-common
+    branch: main
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+
+exports:
+  cmake:
+    target: "robohub-pico"
+    include_dirs:
+      - include
+      - include/robohub
+      - include/robohub/hal
+      - include/robohub/platform
+      - include/robohub/drivers
+    link_libraries:
+      - rho::robohub-common
+
+testing:
+  host_tests:
+    enabled: true
+    target_constraint: "native"
+
+package:
+  kind: library
+  binary: false
+
+metadata:
+  tags:
+    - platform
+    - rp2040
+    - rp2350
+    - pico
+    - raspberry-pi
+    - robohub
+  stability: experimental
+  visibility: public

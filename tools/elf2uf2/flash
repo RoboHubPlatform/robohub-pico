@@ -92,11 +92,16 @@ release_to_the_host() {
 # Write the file from the host that owns the drive, flushing to the device as it
 # goes. This is the step that makes a copy a flash: the host is the only party
 # that can tell the drive the write is finished.
+#
+# The host reads the file by its WSL path through the \\wsl.localhost share, so
+# what it writes is the file this script made. A staging copy into the mounted
+# Windows filesystem is cached there, and a cached copy read back immediately is
+# not necessarily the file that was just written — which flashes a truncated
+# image that still boots and behaves differently run to run.
 write_from_the_host() {
     command -v powershell.exe >/dev/null 2>&1 || return 1
-    name="$(basename "$uf2")"
-    staging="/mnt/c/Users/Public/$name"
-    cp "$uf2" "$staging"
+    distro="${WSL_DISTRO_NAME:-Ubuntu}"
+    unc="\\\\wsl.localhost\\${distro}$(printf '%s' "$uf2" | sed 's#/#\\#g')"
     powershell.exe -NoProfile -Command "
         \$volume = \$null
         for (\$i = 0; \$i -lt 20 -and -not \$volume; \$i++) {
@@ -105,7 +110,7 @@ write_from_the_host() {
         }
         if (-not \$volume) { exit 1 }
         \$letter = \$volume.DriveLetter
-        \$bytes = [IO.File]::ReadAllBytes('C:\Users\Public\\$name')
+        \$bytes = [IO.File]::ReadAllBytes('$unc')
         \$target = \$letter + ':\firmware.uf2'
         Remove-Item \$target -ErrorAction SilentlyContinue
         \$fs = [IO.File]::Open(\$target, [IO.FileMode]::Create, [IO.FileAccess]::Write)

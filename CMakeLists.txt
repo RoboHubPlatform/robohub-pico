@@ -103,6 +103,7 @@ robohub_pico_add_guarded(RH_HAL_SPI  SOURCES src/hal/pico_spi.c)
 robohub_pico_add_guarded(RH_HAL_UART SOURCES src/hal/pico_uart.c)
 robohub_pico_add_guarded(RH_HAL_TIMER SOURCES src/hal/pico_timer.c)
 robohub_pico_add_guarded(RH_HAL_RS485 SOURCES src/hal/pico_rs485.c)
+robohub_pico_add_guarded(RH_HAL_ONEWIRE SOURCES src/hal/pico_onewire.c)
 
 # ---------------------------------------------------------------------------
 # Library target

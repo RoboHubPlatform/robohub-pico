@@ -63,6 +63,9 @@
     },
     "spi0_csn": {
       "gpio": 17
+    },
+    "onewire0_dq": {
+      "gpio": 28
     }
   },
   "peripherals": {

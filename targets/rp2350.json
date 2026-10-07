@@ -1,0 +1,21 @@
+{
+  "kind": "mcu",
+  "name": "rp2350",
+  "comment": "The RP2350: two Cortex-M33 cores with a RISC-V hazard3 core, 520 KB of SRAM and no on-chip flash. Executable code is read from an external flash chip through the XIP cache, so a program is linked at its XIP address and copied there by the bootrom.",
+  "arch": "arm-cortex-m",
+  "core": "cortex-m33",
+  "comment_linker": "The linker script, the memory map and the startup are the SDK's, through the board's prelude: an RP2350 image needs the vendor's boot block and crt0, and a second copy of either is a second thing to keep in step with the silicon.",
+  "toolchain": {
+    "compiler": "arm-none-eabi-gcc",
+    "prelude": "../boards/pico2w/sdk.cmake",
+    "comment": "the compiler is named so CMake has one before `project()`; the prelude locates the SDK and defines its targets, and the flags and linker come from those"
+  },
+  "defines": [
+    "PICO_RP2350=1"
+  ],
+  "flash": {
+    "tool": "picotool",
+    "command": "picotool load -f -x {binary}",
+    "comment": "the bootrom's own protocol over USB; hold BOOTSEL while powering the board"
+  }
+}

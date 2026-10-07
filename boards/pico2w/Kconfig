@@ -1,0 +1,12 @@
+# pico2w board Kconfig
+
+config RH_BOARD_PICO_2W
+    bool "Raspberry Pi Pico 2W"
+    select RH_HAL_GPIO
+    select RH_HAL_UART
+    select RH_HAL_TIMER
+    select RH_HAL_I2C
+    select RH_HAL_SPI
+    default y
+    help
+      Raspberry Pi Pico 2W with RP2350 (Cortex-M33).

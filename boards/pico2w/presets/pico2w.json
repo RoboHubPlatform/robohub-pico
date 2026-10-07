@@ -1,0 +1,14 @@
+{
+  "name": "pico2w",
+  "board": "pico2w",
+  "family": "rp2350",
+  "core": "cortex-m33",
+  "target": "rp2350",
+  "dependencies": [
+    {
+      "name": "pico-sdk",
+      "git": "https://github.com/raspberrypi/pico-sdk.git",
+      "branch": "develop"
+    }
+  ]
+}

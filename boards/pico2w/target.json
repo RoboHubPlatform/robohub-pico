@@ -1,0 +1,108 @@
+{
+  "kind": "board",
+  "name": "pico2w",
+  "comment": "Raspberry Pi Pico 2W: RP2350 (Cortex-M33), 4 MB flash, 520 KB SRAM, on-board Wi-Fi/Bluetooth via Infineon CYW43439. Programmed through the bootrom's USB protocol (BOOTSEL mode).",
+  "board": "PICO_2W",
+  "mcu": "RP2350",
+  "core": "cortex-m33",
+  "preset": "rp2350",
+  "comment_linker": "The linker script, the memory map and the startup are the SDK's, reached through the prelude below: an RP2350 image needs the vendor's boot block, its crt0 and its runtime, and a second copy of any of them is a second thing to keep in step with the silicon.",
+  "toolchain": {
+    "compiler": "arm-none-eabi-gcc",
+    "prelude": "sdk.cmake",
+    "comment": "the compiler is named so CMake has one before `project()`; the prelude locates the SDK and defines its targets, which carry the architecture flags, the linker script and the startup"
+  },
+  "defines": [
+    "PICO_RP2350=1",
+    "PICO_PICO2W=1"
+  ],
+  "flash": {
+    "tool": "elf2uf2",
+    "command": "elf2uf2 {binary} --family-id 0xe48bff59",
+    "comment": "the platform's own ELF-to-UF2 converter, which writes to the drive the bootrom publishes; the family ID is the RP2350's ARM Secure one, which the bootrom checks against the part it is running on; hold BOOTSEL while powering the board"
+  },
+  "pins": {
+    "user_led": {
+      "gpio": 15,
+      "active_high": true,
+      "comment": "on-board LED, connected to GP15"
+    },
+    "uart0_tx": {
+      "gpio": 0,
+      "comment": "UART0 TX, also accessible via the DEBUG SWD connector"
+    },
+    "uart0_rx": {
+      "gpio": 1
+    },
+    "uart1_tx": {
+      "gpio": 4
+    },
+    "uart1_rx": {
+      "gpio": 5
+    },
+    "i2c0_sda": {
+      "gpio": 16
+    },
+    "i2c0_scl": {
+      "gpio": 17
+    },
+    "i2c1_sda": {
+      "gpio": 18
+    },
+    "i2c1_scl": {
+      "gpio": 19
+    },
+    "spi0_tx": {
+      "gpio": 19
+    },
+    "spi0_rx": {
+      "gpio": 20
+    },
+    "spi0_sck": {
+      "gpio": 18
+    },
+    "spi0_csn": {
+      "gpio": 17
+    }
+  },
+  "peripherals": {
+    "uart0": {
+      "instance": "uart0",
+      "pins": {
+        "tx": "0",
+        "rx": "1"
+      }
+    },
+    "uart1": {
+      "instance": "uart1",
+      "pins": {
+        "tx": "4",
+        "rx": "5"
+      }
+    },
+    "i2c0": {
+      "instance": "i2c0",
+      "pins": {
+        "sda": "16",
+        "scl": "17"
+      }
+    },
+    "i2c1": {
+      "instance": "i2c1",
+      "pins": {
+        "sda": "18",
+        "scl": "19"
+      }
+    },
+    "spi0": {
+      "instance": "spi0",
+      "pins": {
+        "tx": "19",
+        "rx": "20",
+        "sck": "18",
+        "csn": "17"
+      }
+    }
+  },
+  "program": "program.cmake"
+}

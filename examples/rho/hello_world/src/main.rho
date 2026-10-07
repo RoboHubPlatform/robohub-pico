@@ -1,0 +1,41 @@
+// hello_world — says hello, then says something every second.
+//
+// Written against the RoboHub contracts and nothing else.
+// The names below are the foreign functions rho-cimport generates from
+// the contract headers in robohub-common.
+
+module main
+
+import ffi
+
+fn main() void {
+    let led_name: string = "user_led"
+
+    if robohub_platform_init() != 0 {
+        return
+    }
+
+    let led: Option[Ptr[RoboHubGPIO]] = robohub_get_gpio(led_name)
+    let timer: Option[Ptr[RoboHubTimer]] = robohub_get_timer("system_timer")
+
+    print("\n")
+    print("Hello world, in Rho\n")
+    print("says something every second, from here on\n")
+    print("--------------------------------------\n")
+
+    let seconds: u32 = 0
+    while true {
+        seconds = seconds + 1
+        print("[")
+        print(string.from_i32(seconds as i32))
+        print(" s] hello from the board, in Rho\n")
+
+        if is_some(led) {
+            rho_robohubgpio_write(value(led), 0, seconds % 2)
+        }
+
+        if is_some(timer) {
+            rho_robohubtimer_delay_ms(value(timer), 1000)
+        }
+    }
+}

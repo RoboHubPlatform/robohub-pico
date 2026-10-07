@@ -1,0 +1,148 @@
+#!/bin/sh
+#
+# flash — program a board from the platform's own converter.
+#
+# What reaches an RP2350 is a UF2 file on the mass-storage device the bootrom
+# publishes. Converting the ELF to that file, and writing it to the drive, is a
+# fact about the board rather than about Rho, so it lives here, in the platform,
+# and the toolchain is told only that this is the program to run.
+#
+# Which host can *mount* that drive is the host's business, and so is writing
+# to it. A machine whose kernel carries usb-storage mounts the drive itself and
+# the file goes straight in. One whose kernel does not — WSL, whose kernel has
+# no usb-storage at all — can only hand the board to the host that does, and
+# then has to write through that host: a write reaching the drive through
+# another filesystem is cached there, and a cached write is a file the bootrom
+# never sees, so the drive stays and nothing is programmed.
+#
+# The entry point is at a fixed place — `tools/elf2uf2/flash`, named after the
+# tool the board's spec declares — so it resolves the same way on every machine.
+#
+# usage: flash <firmware.elf>
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+set -e
+
+here=$(cd "$(dirname "$0")" && pwd)
+binary="$here/build/elf2uf2"
+elf="$1"
+
+if [ -z "$elf" ]; then
+    echo "flash: usage: flash <firmware.elf>" >&2
+    exit 2
+fi
+
+# The converter is built from the platform's own Rho source, so a fresh clone
+# flashes without a manual step, and building it again is a no-op when current.
+if [ ! -x "$binary" ]; then
+    echo "flash: building the platform's elf2uf2 from Rho source" >&2
+    rho build "$here" >&2
+fi
+
+# Everything the caller said about this board — the family ID the bootrom
+# checks, most of all — goes to the converter; the output path is fixed here
+# because the delivery below is what chooses where the file reaches the board.
+shift
+uf2="$elf.uf2"
+"$binary" "$elf" "$uf2" "$@"
+
+# The drive is wherever a FAT volume holding INFO_UF2.TXT is mounted. Searching
+# mount points rather than guessing a name means the answer does not depend on
+# what a machine chose to call it: a desktop mounts removable media under the
+# user's own name, a server or a container mounts it wherever it was told to.
+find_uf2_drive() {
+    for candidate in /media/* /media/*/* /run/media/* /run/media/*/* /mnt/* /mnt/*/*; do
+        if [ -f "$candidate/INFO_UF2.TXT" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Whether this is WSL, which is the one case the drive cannot be mounted and the
+# board has to be handed to the Windows host that can. Nothing below applies on
+# a machine that mounts its own removable media.
+is_wsl() {
+    [ -r /proc/sys/kernel/osrelease ] && grep -qi microsoft /proc/sys/kernel/osrelease
+}
+
+# Ask the host that can mount the board to take it back. Only meaningful under
+# WSL, where the board is attached to a host that cannot mount it — and only
+# attempted there, so nothing here reaches for a Windows tool on a machine that
+# has none.
+release_to_the_host() {
+    is_wsl || return 0
+    command -v powershell.exe >/dev/null 2>&1 || return 0
+    echo "flash: asking the host to take the board back" >&2
+    powershell.exe -NoProfile -Command "
+        \$usbipd = 'C:\Program Files\usbipd-win\usbipd.exe'
+        if (-not (Test-Path \$usbipd)) { exit 0 }
+        \$line = & \$usbipd list | Select-String '2e8a:000f' | Select-Object -First 1
+        if (-not \$line) { exit 0 }
+        \$busid = (\$line.ToString().Trim() -split '\s+')[0]
+        & \$usbipd detach --busid \$busid
+    " 2>/dev/null || true
+    sleep 3
+}
+
+# Write the file from the host that owns the drive, flushing to the device as it
+# goes. This is the step that makes a copy a flash: the host is the only party
+# that can tell the drive the write is finished.
+write_from_the_host() {
+    command -v powershell.exe >/dev/null 2>&1 || return 1
+    name="$(basename "$uf2")"
+    staging="/mnt/c/Users/Public/$name"
+    cp "$uf2" "$staging"
+    powershell.exe -NoProfile -Command "
+        \$volume = \$null
+        for (\$i = 0; \$i -lt 20 -and -not \$volume; \$i++) {
+            \$volume = Get-Volume | Where-Object { \$_.FileSystemLabel -like '*RP*' } | Select-Object -First 1
+            if (-not \$volume) { Start-Sleep -Milliseconds 500 }
+        }
+        if (-not \$volume) { exit 1 }
+        \$letter = \$volume.DriveLetter
+        \$bytes = [IO.File]::ReadAllBytes('C:\Users\Public\\$name')
+        \$target = \$letter + ':\firmware.uf2'
+        Remove-Item \$target -ErrorAction SilentlyContinue
+        \$fs = [IO.File]::Open(\$target, [IO.FileMode]::Create, [IO.FileAccess]::Write)
+        \$fs.Write(\$bytes, 0, \$bytes.Length)
+        \$fs.Flush(\$true)
+        \$fs.Close()
+    "
+}
+
+# PICOBOOT is the bootrom's other interface, and it needs no mounted drive: the
+# board is programmed over USB wherever it is reachable. That is the only path
+# on a host whose kernel cannot mount the drive — WSL — and it is preferred
+# when a program that speaks it is present, because there is nothing to mount
+# and nothing to flush. `RH_PICOTOOL` names one the machine keeps elsewhere.
+picotool_bin="${RH_PICOTOOL:-picotool}"
+if command -v "$picotool_bin" >/dev/null 2>&1 && "$picotool_bin" info -d >/dev/null 2>&1; then
+    echo "flash: over PICOBOOT, through $(basename "$picotool_bin")" >&2
+    exec "$picotool_bin" load -x "$elf"
+fi
+
+drive="$(find_uf2_drive || true)"
+if [ -z "$drive" ] && is_wsl; then
+    release_to_the_host
+    drive="$(find_uf2_drive || true)"
+fi
+
+if [ -n "$drive" ] && ! is_wsl; then
+    # A machine that mounted the drive itself writes to it itself.
+    echo "flash: RP2350 at $drive" >&2
+    cp "$uf2" "$drive/firmware.uf2"
+    sync
+elif is_wsl && write_from_the_host; then
+    # WSL can neither mount the drive nor write through it reliably, so the
+    # host that did mount it is the one that writes the file.
+    echo "flash: wrote through the host that owns the drive" >&2
+else
+    echo "flash: no RP2350 drive found. Hold BOOTSEL while powering the board;" >&2
+    echo "flash: if it is attached to a host that cannot mount it, release it." >&2
+    exit 1
+fi

@@ -39,6 +39,35 @@
 #include "pico_onewire.h"
 #endif
 
+/* Under a kernel, the SDK's background alarm — which is what pumps TinyUSB in a
+ * bare-metal build — is not running, so the CDC ring buffers are never drained:
+ * the device enumerates and the console is silent. This task is that pump. It
+ * exists only when FreeRTOS is, and only when the console is the USB one. */
+#if defined(CONFIG_RH_FREERTOS) && CONFIG_RH_FREERTOS
+#include "FreeRTOS.h"
+#include "task.h"
+#if defined(CONFIG_RH_CONSOLE_USB) && CONFIG_RH_CONSOLE_USB
+#include "tusb.h"
+#endif
+
+static void usb_cdc_service(void* argument)
+{
+    (void)argument;
+    for (;;) {
+#if defined(CONFIG_RH_CONSOLE_USB) && CONFIG_RH_CONSOLE_USB
+        tud_task();
+#endif
+        vTaskDelay(pdMS_TO_TICKS(2));
+    }
+}
+
+static void usb_cdc_service_start(void)
+{
+    (void)xTaskCreate(usb_cdc_service, "usb_cdc", 512, 0,
+                      tskIDLE_PRIORITY + 1, 0);
+}
+#endif
+
 /* -------------------------------------------------------------------------- */
 /*  HAL instances                                                             */
 /* -------------------------------------------------------------------------- */
@@ -83,6 +112,12 @@ RoboHubError robohub_board_register(void)
     }
 
     bsp_register_hals();
+
+#if defined(CONFIG_RH_FREERTOS) && CONFIG_RH_FREERTOS
+    /* Before the scheduler starts, so the pump is running as soon as it does. */
+    usb_cdc_service_start();
+#endif
+
     return ROBOHUB_OK;
 }
 

@@ -2,24 +2,55 @@ cmake_minimum_required(VERSION 3.16)
 project(robohub-pico C ASM)
 
 # ---------------------------------------------------------------------------
-# Locate robohub-common
+# Locating a sibling module
 # ---------------------------------------------------------------------------
+# A path is never hard-coded. The order is: a variable the parent build already
+# set — rho writes one for every dependency — then the environment, then a
+# sibling checkout, which is the ordinary multi-repo layout, and finally the
+# module's own repository, fetched. The same file is then true on every machine.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps.cmake")
   include("${CMAKE_CURRENT_SOURCE_DIR}/deps.cmake")
 endif()
 
-if(NOT ROBOHUB_COMMON_DIR)
-  if(EXISTS "/home/miraur/projects/robohub-common")
-    set(ROBOHUB_COMMON_DIR "/home/miraur/projects/robohub-common")
-  elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../robohub-common")
-    get_filename_component(ROBOHUB_COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../robohub-common" ABSOLUTE)
-  elseif(DEFINED ENV{ROBOHUB_COMMON_DIR})
-    set(ROBOHUB_COMMON_DIR "$ENV{ROBOHUB_COMMON_DIR}")
-  else()
-    message(FATAL_ERROR "robohub-common not found. Set ROBOHUB_COMMON_DIR or place it beside this project.")
+# robohub_locate_module(<name> <out-var>): find a sibling module and set the
+# variable to its directory. `<name>` is the module's name, so the variable is
+# its upper-case form with `_DIR` appended — robohub-common becomes
+# ROBOHUB_COMMON_DIR, the name a parent build or the environment can carry.
+function(robohub_locate_module module out_var)
+  string(TOUPPER "${module}" upper)
+  string(REPLACE "-" "_" upper "${upper}")
+  if(${out_var})
+    return()
   endif()
+  if(DEFINED ENV{${upper}_DIR})
+    set(${out_var} "$ENV{${upper}_DIR}" PARENT_SCOPE)
+    return()
+  endif()
+  # A sibling checkout, searched upward: a module may sit nested — a driver
+  # inside a collection — with the sibling several levels above it.
+  set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
+  foreach(level RANGE 6)
+    get_filename_component(parent "${dir}/.." ABSOLUTE)
+    if(EXISTS "${parent}/${module}/CMakeLists.txt")
+      set(${out_var} "${parent}/${module}" PARENT_SCOPE)
+      return()
+    endif()
+    set(dir "${parent}")
+  endforeach()
+  include(FetchContent)
+  message(STATUS "[${PROJECT_NAME}] fetching ${module}")
+  FetchContent_Declare(${module}
+    GIT_REPOSITORY "https://github.com/RoboHubPlatform/${module}.git"
+    GIT_TAG main GIT_SHALLOW TRUE GIT_PROGRESS TRUE)
+  FetchContent_MakeAvailable(${module})
+  set(${out_var} "${${module}_SOURCE_DIR}" PARENT_SCOPE)
+endfunction()
+
+robohub_locate_module(robohub-common ROBOHUB_COMMON_DIR)
+if(NOT ROBOHUB_COMMON_DIR)
+  message(FATAL_ERROR "robohub-common not found and could not be fetched")
 endif()
-message(STATUS "[robohub-pico] robohub-common at ${ROBOHUB_COMMON_DIR}")
+message(STATUS "[${PROJECT_NAME}] robohub-common at ${ROBOHUB_COMMON_DIR}")
 
 if(PROJECT_IS_TOP_LEVEL)
   add_subdirectory("${ROBOHUB_COMMON_DIR}" robohub-common)
@@ -106,9 +137,42 @@ robohub_pico_add_guarded(RH_HAL_RS485 SOURCES src/hal/pico_rs485.c)
 robohub_pico_add_guarded(RH_HAL_ONEWIRE SOURCES src/hal/pico_onewire.c)
 
 # ---------------------------------------------------------------------------
+# FreeRTOS
+# ---------------------------------------------------------------------------
+# When a project enables FreeRTOS, the platform fills in the contract
+# robohub-freertos reads. The kernel this platform vendors is the Raspberry Pi
+# one, whose RP2350 port upstream FreeRTOS does not carry; adding it here defines
+# `FreeRTOS-Kernel`, and the middleware uses that instead of fetching another.
+#
+# This is the platform's job and not the middleware's: which port a core needs
+# is a fact about the core, and robohub-freertos is written to run on all of
+# them. A platform with no vendor kernel leaves the contract empty and the
+# middleware fetches an upstream one with the port the contract names.
+if(RHO_CONFIG_RH_FREERTOS)
+  set(ROBOHUB_FREERTOS_VENDOR_KERNEL "${CMAKE_CURRENT_SOURCE_DIR}/vendor/FreeRTOS-Kernel")
+  if(ROBOHUB_PICO_SDK_AVAILABLE
+     AND EXISTS "${ROBOHUB_FREERTOS_VENDOR_KERNEL}/portable/ThirdParty/GCC/RP2350_ARM_NTZ/CMakeLists.txt")
+    message(STATUS "[${PROJECT_NAME}] FreeRTOS: adding the RP2350 port the vendored kernel carries")
+    add_subdirectory(
+      "${ROBOHUB_FREERTOS_VENDOR_KERNEL}/portable/ThirdParty/GCC/RP2350_ARM_NTZ"
+      "${CMAKE_BINARY_DIR}/_robohub-freertos-port" EXCLUDE_FROM_ALL)
+    set(ROBOHUB_FREERTOS_PLATFORM_KERNEL ON CACHE BOOL
+        "the selected platform defines FreeRTOS-Kernel itself" FORCE)
+    set(ROBOHUB_CPU_CLOCK_HZ 150000000 CACHE STRING "the RP2350 clock" FORCE)
+    set(ROBOHUB_HEAP_SIZE 32768 CACHE STRING "the FreeRTOS heap, in bytes" FORCE)
+  else()
+    message(STATUS "[${PROJECT_NAME}] FreeRTOS enabled but no vendored kernel port; robohub-freertos will fetch one")
+  endif()
+endif()
+
+# ---------------------------------------------------------------------------
 # Library target
 # ---------------------------------------------------------------------------
 add_library(robohub-pico STATIC ${ROBOHUB_PICO_SOURCES})
+
+# A contract macro: which platform this is, for a module that behaves
+# differently on one — the FreeRTOS configuration reads it.
+target_compile_definitions(robohub-pico PUBLIC ROBOHUB_PLATFORM_PICO=1)
 
 target_include_directories(robohub-pico PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -179,6 +243,32 @@ if(RHO_CONFIG_RH_CONSOLE_USB AND ROBOHUB_PICO_SDK_AVAILABLE)
   set(RHO_CONSOLE_USB ON CACHE BOOL "the console is the board's USB port" FORCE)
   # pico_stdio_usb is enabled on the program by the generated build file
   # (pico_enable_stdio_usb), which is where the driver array is compiled.
+endif()
+
+# ---------------------------------------------------------------------------
+# Wireless networking
+# ---------------------------------------------------------------------------
+# When a project enables the network, the Pico W's radio and LwIP are the SDK's.
+# `pico_cyw43_arch` is linked as an interface target, the way pico_stdlib is, so
+# the stack compiles once in the program and not into this library; this
+# library's own net source needs only its headers and definitions. The arch is
+# the threadsafe-background one, which is `NO_SYS=1`: the RAW API, not sockets.
+if(RHO_CONFIG_RH_NET AND ROBOHUB_PICO_SDK_AVAILABLE)
+  # A board without the wireless chip names no `pico_cyw43_arch` arch; say so
+  # rather than failing later on an undefined link target.
+  if(NOT TARGET pico_cyw43_arch_lwip_threadsafe_background)
+    message(FATAL_ERROR
+      "[robohub-pico] RH_NET is enabled but board '${PICO_BOARD}' has no cyw43 wireless chip")
+  endif()
+  message(STATUS "[robohub-pico] network over cyw43 + LwIP (the SDK's pico_cyw43_arch)")
+  # The net source is compiled where the wireless headers are — in the program,
+  # as an interface source, the same shape the SDK's own targets use. Building
+  # it inside this library would mean naming every header `pico_cyw43_arch`
+  # already names, and keeping that list in step by hand.
+  target_sources(robohub-pico INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/pico_net.c")
+  target_link_libraries(robohub-pico INTERFACE pico_cyw43_arch_lwip_threadsafe_background)
+  # LwIP is configured by a header the application supplies; this is the board's.
+  target_include_directories(robohub-pico INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/config")
 endif()
 
 target_compile_features(robohub-pico PUBLIC c_std_11)

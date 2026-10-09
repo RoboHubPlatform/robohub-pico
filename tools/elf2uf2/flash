@@ -101,7 +101,12 @@ release_to_the_host() {
 write_from_the_host() {
     command -v powershell.exe >/dev/null 2>&1 || return 1
     distro="${WSL_DISTRO_NAME:-Ubuntu}"
-    unc="\\\\wsl.localhost\\${distro}$(printf '%s' "$uf2" | sed 's#/#\\#g')"
+    # The host reads the file through \\wsl.localhost, which is a path from the
+    # distro's root — so a relative output has to become absolute first, or the
+    # share is asked for `\\wsl.localhost\Ubuntu<toplevel>/...` and the read
+    # fails, which reads back as an empty file written to the drive.
+    uf2_abs=$(cd "$(dirname "$uf2")" && pwd)/$(basename "$uf2")
+    unc="\\\\wsl.localhost\\${distro}$(printf '%s' "$uf2_abs" | sed 's#/#\\#g')"
     powershell.exe -NoProfile -Command "
         \$volume = \$null
         for (\$i = 0; \$i -lt 20 -and -not \$volume; \$i++) {

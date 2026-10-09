@@ -67,6 +67,42 @@ RoboHubConsoleError robohub_console_puts(const char* text)
     return robohub_console_write(text, len);
 }
 
+RoboHubConsoleError robohub_console_write_raw(const uint8_t* data, size_t len)
+{
+    if (data == NULL || len == 0) {
+        return ROBOHUB_CONSOLE_ERR_INVALID;
+    }
+    if (!robohub_console.ready) {
+        return ROBOHUB_CONSOLE_ERR_STATE;
+    }
+#ifdef RH_PICO_SDK
+    /* `putchar_raw`, not `fwrite`: stdio would buffer a frame and could rewrite
+     * its ends, and a frame that arrives changed is a frame that fails its
+     * check. */
+    for (size_t i = 0; i < len; i++) {
+        (void)putchar_raw((int)data[i]);
+    }
+#else
+    (void)fwrite(data, 1, len, stdout);
+#endif
+    robohub_console.written += (uint64_t)len;
+    return ROBOHUB_CONSOLE_OK;
+}
+
+int robohub_console_read_byte(void)
+{
+#ifdef RH_PICO_SDK
+    int byte = getchar_timeout_us(0);
+    if (byte == PICO_ERROR_TIMEOUT) {
+        return -1;
+    }
+    return byte;
+#else
+    int byte = getchar();
+    return byte;
+#endif
+}
+
 /* The SDK's own background servicing keeps its transports alive, so there is
  * nothing for a program to drive here. The symbol exists because a program
  * that polls its console should not have to know which transport it got. */

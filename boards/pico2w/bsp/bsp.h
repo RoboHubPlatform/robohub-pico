@@ -45,10 +45,21 @@ extern "C" {
 /* -------------------------------------------------------------------------- */
 /*  UART console                                                              */
 /* -------------------------------------------------------------------------- */
-#define RH_CONSOLE_UART         uart0
+/* UARTs are named by index at the board layer: uart0 is index 0 and uart1 is
+ * index 1. The SDK's `uart0`/`uart1` are the platform's business, because only
+ * the platform compiles with the SDK in scope — this header is read by a
+ * program's build too. */
+#define RH_UART0_INDEX          0
+#define RH_UART1_INDEX          1
 #define RH_CONSOLE_BAUDRATE     115200
 #define RH_CONSOLE_TX_PIN       0
 #define RH_CONSOLE_RX_PIN       1
+
+/* A second UART, for a downstream link: an RS-485 transceiver, or another board
+ * on TTL. uart0 carries the console; uart1 is free on GPIO 4/5, which the board
+ * routes to no other peripheral. */
+#define RH_UART1_TX_PIN         4
+#define RH_UART1_RX_PIN         5
 
 /* -------------------------------------------------------------------------- */
 /*  I2C                                                                       */

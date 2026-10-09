@@ -39,6 +39,11 @@
 #include "pico_onewire.h"
 #endif
 
+#if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART
+#include "robohub/hal/uart.h"
+#include "pico_uart.h"
+#endif
+
 /* Under a kernel, the SDK's background alarm — which is what pumps TinyUSB in a
  * bare-metal build — is not running, so the CDC ring buffers are never drained:
  * the device enumerates and the console is silent. This task is that pump. It
@@ -100,6 +105,8 @@ static RoboHubTimer system_timer = {
 static RoboHubPicoOneWire onewire0;
 #endif
 
+
+
 /* -------------------------------------------------------------------------- */
 /*  Board init                                                                */
 /* -------------------------------------------------------------------------- */
@@ -139,5 +146,14 @@ void bsp_register_hals(void)
      * known. */
     pico_onewire_create(&onewire0, "onewire0", RH_ONEWIRE0_PIN);
     robohub_register_onewire("onewire0", &onewire0.interface);
+#endif
+
+#if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART
+    /* A program that needs a downstream link looks up "uart1"; uart0 is here
+     * too, so a board on TTL where the console is USB can use it as a link. The
+     * platform owns the peripherals, so the board names an index and its pins
+     * and no SDK type. */
+    pico_register_uart_link("uart0", RH_UART0_INDEX, RH_CONSOLE_TX_PIN, RH_CONSOLE_RX_PIN);
+    pico_register_uart_link("uart1", RH_UART1_INDEX, RH_UART1_TX_PIN, RH_UART1_RX_PIN);
 #endif
 }

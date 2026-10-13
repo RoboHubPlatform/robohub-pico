@@ -69,6 +69,9 @@ build:
     - config: RH_HAL_ONEWIRE
       sources:
         - src/hal/pico_onewire.c
+    - config: RH_HAL_DHT
+      sources:
+        - src/hal/pico_dht.c
 
   sources:
     - src/platform/pico_console.c

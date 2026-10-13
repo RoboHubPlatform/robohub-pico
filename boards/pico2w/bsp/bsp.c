@@ -39,6 +39,11 @@
 #include "pico_onewire.h"
 #endif
 
+#if defined(CONFIG_RH_HAL_DHT) && CONFIG_RH_HAL_DHT
+#include "robohub/hal/dht.h"
+#include "pico_dht.h"
+#endif
+
 #if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART
 #include "robohub/hal/uart.h"
 #include "pico_uart.h"
@@ -105,6 +110,12 @@ static RoboHubTimer system_timer = {
 static RoboHubPicoOneWire onewire0;
 #endif
 
+#if defined(CONFIG_RH_HAL_DHT) && CONFIG_RH_HAL_DHT
+/* One software DHT line on RH_DHT0_PIN, filled in at registration for the same
+ * reason the 1-Wire bus is. */
+static RoboHubPicoDHT dht0;
+#endif
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -146,6 +157,13 @@ void bsp_register_hals(void)
      * known. */
     pico_onewire_create(&onewire0, "onewire0", RH_ONEWIRE0_PIN);
     robohub_register_onewire("onewire0", &onewire0.interface);
+#endif
+
+#if defined(CONFIG_RH_HAL_DHT) && CONFIG_RH_HAL_DHT
+    /* The line a DHT driver looks up by name. A project that fits a DHT selects
+     * the HAL, and the board is where the pin it is wired to is known. */
+    pico_dht_create(&dht0, "dht0", RH_DHT0_PIN);
+    robohub_register_dht("dht0", &dht0.interface);
 #endif
 
 #if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART

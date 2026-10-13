@@ -89,6 +89,13 @@ extern "C" {
 #define RH_ONEWIRE0_PIN         28
 
 /* -------------------------------------------------------------------------- */
+/*  DHT                                                                       */
+/* -------------------------------------------------------------------------- */
+/* A DHT is a single data line on one pin, so any free GPIO will do. GP22 is
+ * free on the Pico 2W and carries no peripheral assignment. */
+#define RH_DHT0_PIN             22
+
+/* -------------------------------------------------------------------------- */
 /*  Board functions                                                           */
 /* -------------------------------------------------------------------------- */
 void bsp_init(void);

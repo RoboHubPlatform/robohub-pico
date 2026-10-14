@@ -95,6 +95,18 @@ static RoboHubGPIO led_gpio = {
     .read = pico_gpio_read,
 };
 
+/* A general GPIO controller, so a board's carrier can drive a pin the platform
+ * did not name — a transceiver's direction pin, a chip select. The LED instance
+ * is the same operations under a friendlier name. */
+static RoboHubGPIO gpio0 = {
+    .name = "gpio0",
+    .context = 0,
+    .init = pico_gpio_init,
+    .set_mode = pico_gpio_set_mode,
+    .write = pico_gpio_write,
+    .read = pico_gpio_read,
+};
+
 static RoboHubTimer system_timer = {
     .name = "system_timer",
     .context = 0,
@@ -149,6 +161,7 @@ void bsp_init(void)
 void bsp_register_hals(void)
 {
     robohub_register_gpio("user_led", &led_gpio);
+    robohub_register_gpio("gpio0", &gpio0);
     robohub_register_timer("system_timer", &system_timer);
 
 #if defined(CONFIG_RH_HAL_ONEWIRE) && CONFIG_RH_HAL_ONEWIRE

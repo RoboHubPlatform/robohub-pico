@@ -44,6 +44,7 @@ void pico_register_uart_link(const char* name,
     self->init = pico_uart_init;
     self->write = pico_uart_write;
     self->read = pico_uart_read;
+    self->read_available = pico_uart_read_available;
     (void)robohub_register_uart(name, self);
 }
 

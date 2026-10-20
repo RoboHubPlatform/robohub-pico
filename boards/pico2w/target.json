@@ -66,6 +66,19 @@
     },
     "onewire0_dq": {
       "gpio": 28
+    },
+    "adc0_ch0": {
+      "gpio": 26,
+      "comment": "the converter's first input"
+    },
+    "pwm0_ch0": {
+      "gpio": 21
+    },
+    "pwm0_ch1": {
+      "gpio": 23
+    },
+    "pwm0_ch2": {
+      "gpio": 24
     }
   },
   "peripherals": {
@@ -104,6 +117,20 @@
         "rx": "20",
         "sck": "18",
         "csn": "17"
+      }
+    },
+    "adc0": {
+      "instance": "adc0",
+      "pins": {
+        "channel0": "26"
+      }
+    },
+    "pwm0": {
+      "instance": "pwm0",
+      "pins": {
+        "channel0": "21",
+        "channel1": "23",
+        "channel2": "24"
       }
     }
   },

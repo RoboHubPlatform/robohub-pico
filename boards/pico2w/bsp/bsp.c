@@ -44,6 +44,16 @@
 #include "pico_dht.h"
 #endif
 
+#if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC
+#include "robohub/hal/adc.h"
+#include "pico_adc.h"
+#endif
+
+#if defined(CONFIG_RH_HAL_PWM) && CONFIG_RH_HAL_PWM
+#include "robohub/hal/pwm.h"
+#include "pico_pwm.h"
+#endif
+
 #if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART
 #include "robohub/hal/uart.h"
 #include "pico_uart.h"
@@ -128,6 +138,21 @@ static RoboHubPicoOneWire onewire0;
 static RoboHubPicoDHT dht0;
 #endif
 
+#if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC
+/* The converter's inputs, in channel order. The part has four; the board wires
+ * one, and a program that wants more says so by giving the board its own
+ * configuration. */
+static const rh_u32 adc0_pins[] = { 26u };
+static RoboHubPicoADC adc0;
+#endif
+
+#if defined(CONFIG_RH_HAL_PWM) && CONFIG_RH_HAL_PWM
+/* The pins the PWM channels drive, in channel order. Three are enough for an
+ * RGB LED; the part has more, and a board that needs them names them. */
+static const rh_u32 pwm0_pins[] = { 21u, 23u, 24u };
+static RoboHubPicoPWM pwm0;
+#endif
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -177,6 +202,19 @@ void bsp_register_hals(void)
      * the HAL, and the board is where the pin it is wired to is known. */
     pico_dht_create(&dht0, "dht0", RH_DHT0_PIN);
     robohub_register_dht("dht0", &dht0.interface);
+#endif
+
+#if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC
+    /* The converter a light sensor or any analog part is read through. */
+    pico_adc_create(&adc0, "adc0", adc0_pins, (rh_u8)(sizeof(adc0_pins) / sizeof(adc0_pins[0])));
+    robohub_register_adc("adc0", &adc0.interface);
+#endif
+
+#if defined(CONFIG_RH_HAL_PWM) && CONFIG_RH_HAL_PWM
+    /* The PWM channels a colour LED, a buzzer or an IR transmitter is driven
+     * through. */
+    pico_pwm_create(&pwm0, "pwm0", pwm0_pins, (rh_u8)(sizeof(pwm0_pins) / sizeof(pwm0_pins[0])));
+    robohub_register_pwm("pwm0", &pwm0.interface);
 #endif
 
 #if defined(CONFIG_RH_HAL_UART) && CONFIG_RH_HAL_UART

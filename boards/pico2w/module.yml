@@ -79,6 +79,14 @@ board:
       gpio: 5
     onewire0_dq:
       gpio: 28
+    adc0_ch0:
+      gpio: 26
+    pwm0_ch0:
+      gpio: 21
+    pwm0_ch1:
+      gpio: 23
+    pwm0_ch2:
+      gpio: 24
   peripherals:
     uart:
       - name: uart0
@@ -114,6 +122,19 @@ board:
       - name: onewire0
         type: onewire
         dq: 2
+    pwm:
+      - name: pwm0
+        instance: pwm0
+        channel: 0
+        gpio: 21
+      - name: pwm0
+        instance: pwm0
+        channel: 1
+        gpio: 23
+      - name: pwm0
+        instance: pwm0
+        channel: 2
+        gpio: 24
 
 metadata:
   tags:

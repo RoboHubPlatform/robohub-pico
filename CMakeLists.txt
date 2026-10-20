@@ -136,6 +136,8 @@ robohub_pico_add_guarded(RH_HAL_TIMER SOURCES src/hal/pico_timer.c)
 robohub_pico_add_guarded(RH_HAL_RS485 SOURCES src/hal/pico_rs485.c)
 robohub_pico_add_guarded(RH_HAL_ONEWIRE SOURCES src/hal/pico_onewire.c)
 robohub_pico_add_guarded(RH_HAL_DHT SOURCES src/hal/pico_dht.c)
+robohub_pico_add_guarded(RH_HAL_ADC SOURCES src/hal/pico_adc.c)
+robohub_pico_add_guarded(RH_HAL_PWM SOURCES src/hal/pico_pwm.c)
 
 # ---------------------------------------------------------------------------
 # FreeRTOS
@@ -226,6 +228,17 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   # linker script and the runtime, carried as flags and sources on a target.
   # Linking it is what makes this an SDK build rather than one beside it.
   target_link_libraries(robohub-pico INTERFACE pico_stdlib)
+
+  # The SDK's peripheral libraries, for the HALs that reach into a peripheral
+  # the standard library does not carry. `pico_stdlib` is the startup and the
+  # runtime; the converter and the PWM are their own libraries, so a program
+  # that uses one links it and a program that uses neither pays for neither.
+  if(RHO_CONFIG_RH_HAL_ADC)
+    target_link_libraries(robohub-pico INTERFACE hardware_adc)
+  endif()
+  if(RHO_CONFIG_RH_HAL_PWM)
+    target_link_libraries(robohub-pico INTERFACE hardware_pwm)
+  endif()
 endif()
 
 # ---------------------------------------------------------------------------

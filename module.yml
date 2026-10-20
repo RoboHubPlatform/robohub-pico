@@ -72,6 +72,12 @@ build:
     - config: RH_HAL_DHT
       sources:
         - src/hal/pico_dht.c
+    - config: RH_HAL_ADC
+      sources:
+        - src/hal/pico_adc.c
+    - config: RH_HAL_PWM
+      sources:
+        - src/hal/pico_pwm.c
 
   sources:
     - src/platform/pico_console.c

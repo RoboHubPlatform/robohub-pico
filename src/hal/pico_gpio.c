@@ -21,13 +21,15 @@ RoboHubError pico_gpio_set_mode(RoboHubGPIO* self, uint32_t pin, uint32_t mode)
 {
     (void)self;
 #ifdef RH_PICO_SDK
-    if (mode == ROBOHUB_GPIO_MODE_OUTPUT || mode == ROBOHUB_GPIO_MODE_INPUT) {
+    if (mode == ROBOHUB_GPIO_MODE_OUTPUT || mode == ROBOHUB_GPIO_MODE_INPUT ||
+        mode == ROBOHUB_GPIO_MODE_INPUT_PULLUP) {
         /* A plain pin, not an alternate function: the SIO function and a
          * direction. This is the mode a chip select or a transceiver's
          * direction pin is set to. */
         gpio_init(pin);
         gpio_set_function(pin, GPIO_FUNC_SIO);
         gpio_set_dir(pin, mode == ROBOHUB_GPIO_MODE_OUTPUT ? GPIO_OUT : GPIO_IN);
+        gpio_set_pull_up(pin, mode == ROBOHUB_GPIO_MODE_INPUT_PULLUP ? GPIO_PULL_UP : GPIO_PULL_DOWN);
         return ROBOHUB_OK;
     }
     /* Anything else is the platform's own: an alternate function by number, for

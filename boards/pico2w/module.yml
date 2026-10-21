@@ -88,54 +88,26 @@ board:
     pwm0_ch2:
       gpio: 24
   peripherals:
-    uart:
-      - name: uart0
-        instance: uart0
-        tx: 0
-        rx: 1
-      - name: uart1
-        instance: uart1
-        tx: 4
-        rx: 5
-    i2c:
-      - name: i2c0
-        instance: i2c0
-        sda: 16
-        scl: 17
-      - name: i2c1
-        instance: i2c1
-        sda: 18
-        scl: 19
-    spi:
-      - name: spi0
-        instance: spi0
-        tx: 19
-        rx: 20
-        sck: 18
-        csn: 17
-    adc:
-      - name: adc0
-        instance: adc0
-        channel: 0
-        gpio: 26
-    onewire:
-      - name: onewire0
-        type: onewire
-        dq: 2
-    pwm:
-      - name: pwm0
-        instance: pwm0
-        channel: 0
-        gpio: 21
-      - name: pwm0
-        instance: pwm0
-        channel: 1
-        gpio: 23
-      - name: pwm0
-        instance: pwm0
-        channel: 2
-        gpio: 24
-
+    - name: uart0
+      kind: uart
+    - name: uart1
+      kind: uart
+    - name: i2c0
+      kind: i2c
+    - name: i2c1
+      kind: i2c
+    - name: spi0
+      kind: spi
+    - name: adc0
+      kind: adc
+    - name: onewire0
+      kind: onewire
+    - name: pwm0
+      kind: pwm
+    - name: pwm0
+      kind: pwm
+    - name: pwm0
+      kind: pwm
 metadata:
   tags:
     - board

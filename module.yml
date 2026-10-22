@@ -128,3 +128,11 @@ metadata:
     - robohub
   stability: experimental
   visibility: public
+
+docs:
+  title: RoboHub Pico Platform
+  section: platforms
+  order: "50"
+  index: docs/index.md
+  sources:
+    - docs/index.md

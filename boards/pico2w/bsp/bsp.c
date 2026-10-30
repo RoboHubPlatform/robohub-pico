@@ -83,8 +83,11 @@ static void usb_cdc_service(void* argument)
 
 static void usb_cdc_service_start(void)
 {
+    /* Above the ordinary task priorities. A console write waits for the USB
+     * stack to drain, and the stack is pumped here: a pump the writer outranks
+     * is a pump that never runs while the writer waits for it. */
     (void)xTaskCreate(usb_cdc_service, "usb_cdc", 512, 0,
-                      tskIDLE_PRIORITY + 1, 0);
+                      tskIDLE_PRIORITY + 2, 0);
 }
 #endif
 

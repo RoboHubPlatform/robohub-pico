@@ -29,7 +29,10 @@ RoboHubError pico_gpio_set_mode(RoboHubGPIO* self, uint32_t pin, uint32_t mode)
         gpio_init(pin);
         gpio_set_function(pin, GPIO_FUNC_SIO);
         gpio_set_dir(pin, mode == ROBOHUB_GPIO_MODE_OUTPUT ? GPIO_OUT : GPIO_IN);
-        gpio_set_pull_up(pin, mode == ROBOHUB_GPIO_MODE_INPUT_PULLUP ? GPIO_PULL_UP : GPIO_PULL_DOWN);
+        /* The SDK expresses a pull as the pair it enables, not as a level: an
+         * input with a pull-up enables only the up side, and every other plain
+         * mode leaves both sides off. */
+        gpio_set_pulls(pin, mode == ROBOHUB_GPIO_MODE_INPUT_PULLUP, false);
         return ROBOHUB_OK;
     }
     /* Anything else is the platform's own: an alternate function by number, for

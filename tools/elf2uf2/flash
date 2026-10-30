@@ -130,10 +130,18 @@ write_from_the_host() {
 # on a host whose kernel cannot mount the drive — WSL — and it is preferred
 # when a program that speaks it is present, because there is nothing to mount
 # and nothing to flush. `RH_PICOTOOL` names one the machine keeps elsewhere.
+#
+# `-f` is what makes it work for a board that is running a program rather than
+# sitting in BOOTSEL: picotool asks the running bootrom to reboot into BOOTSEL
+# and then loads the image. Without it a board that was simply plugged in is
+# reported as no accessible device.
 picotool_bin="${RH_PICOTOOL:-picotool}"
-if command -v "$picotool_bin" >/dev/null 2>&1 && "$picotool_bin" info -d >/dev/null 2>&1; then
+if command -v "$picotool_bin" >/dev/null 2>&1; then
     echo "flash: over PICOBOOT, through $(basename "$picotool_bin")" >&2
-    exec "$picotool_bin" load -x "$elf"
+    if "$picotool_bin" load -f -x "$elf"; then
+        exit 0
+    fi
+    echo "flash: PICOBOOT could not load the image; trying the bootrom's drive" >&2
 fi
 
 drive="$(find_uf2_drive || true)"

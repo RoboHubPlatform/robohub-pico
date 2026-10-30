@@ -1,0 +1,85 @@
+#
+# freertos_hello_world — hello, world, on FreeRTOS.
+#
+# The same program as `examples/c/hello_world`, except that its work runs in a
+# FreeRTOS task rather than in the program's loop. The program is still written
+# against the RoboHub OSAL: linking `robohub-freertos` is what makes the OSAL's
+# thread and delay real, and removing that dependency is what makes it vanish.
+#
+# Built for the board by default:
+#
+#     rho build -target pico2w .
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: freertos-hello-world
+  type: module
+  version: 0.1.0
+  description: >
+    Blinks the user LED of a Pico 2W and writes a line to the console every
+    second, from a FreeRTOS task created through the RoboHub OSAL.
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-10-30"
+
+main: src/main.c
+
+build:
+  language: c
+  sources:
+    - src/main.c
+  output_dir: output
+  presets:
+    - pico2w
+
+depends:
+  - name: robohub-pico
+    type: c
+    path: /home/miraur/projects/robohub-pico
+    git: https://github.com/RoboHubPlatform/robohub-pico
+    branch: main
+  - name: robohub-freertos
+    type: c
+    path: /home/miraur/projects/robohub-freertos
+    git: https://github.com/RoboHubPlatform/robohub-freertos
+    branch: main
+
+c_connection:
+  library: "robohub-pico"
+  headers:
+    - platform.h
+    - console.h
+    - gpio.h
+    - timer.h
+    - osal.h
+    - error.h
+    - types.h
+    - registry.h
+  variants:
+    pico2w:
+      libraries:
+        - robohub-freertos
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+  values_file: project.conf
+
+package:
+  kind: library
+  binary: false
+
+metadata:
+  tags:
+    - example
+    - pico
+    - rp2350
+    - freertos
+    - rtos
+  stability: experimental
+  visibility: public

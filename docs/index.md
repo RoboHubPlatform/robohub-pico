@@ -20,8 +20,12 @@ rho build -target pico2w .
 ## Flashing
 
 ```sh
-rho flash -target pico2w build/output/main
+rho flash -target pico2w -project . build/output/hello_world.elf
 ```
+
+The platform converts the ELF to UF2 and writes it to the bootrom's drive, or
+loads it over PICOBOOT through `picotool` when that is available. A board that
+is already running a program is asked to reboot into BOOTSEL by `picotool -f`.
 
 ## The examples
 
@@ -29,3 +33,7 @@ rho flash -target pico2w build/output/main
 
 `examples/rho/hello_world` is that program in Rho, written against the
 contracts and nothing else.
+
+`examples/c/freertos_hello_world` is that program with its work in a FreeRTOS
+task: it links `robohub-freertos` and uses the RoboHub OSAL, so the same source
+runs with or without the kernel beneath it.

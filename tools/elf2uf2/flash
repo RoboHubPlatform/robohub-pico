@@ -74,11 +74,27 @@ is_wsl() {
 # WSL, where the board is attached to a host that cannot mount it — and only
 # attempted there, so nothing here reaches for a Windows tool on a machine that
 # has none.
+# A board that is Shared to the Windows host is not visible to picotool in WSL.
+# Attaching it first is what makes PICOBOOT available for a board that is
+# already running; without it the drive path is the only option, and a board
+# that is not in BOOTSEL does not publish one.
+attach_to_wsl() {
+    is_wsl || return 1
+    command -v powershell.exe >/dev/null 2>&1 || return 1
+    listing="$(timeout 10 powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r' || true)"
+    busid="$(printf '%s\n' "$listing" | awk '$2 ~ /^2e8a:/ && $NF == "Shared" { print $1; exit }')"
+    [ -n "$busid" ] || return 1
+    echo "flash: attaching $busid to WSL for PICOBOOT" >&2
+    timeout 15 powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $busid" >/dev/null 2>&1 || return 1
+    sleep 2
+    return 0
+}
+
 release_to_the_host() {
     is_wsl || return 0
     command -v powershell.exe >/dev/null 2>&1 || return 0
     echo "flash: asking the host to take the board back" >&2
-    powershell.exe -NoProfile -Command "
+    timeout 15 powershell.exe -NoProfile -Command "
         \$usbipd = 'C:\Program Files\usbipd-win\usbipd.exe'
         if (-not (Test-Path \$usbipd)) { exit 0 }
         \$line = & \$usbipd list | Select-String '2e8a:000f' | Select-Object -First 1
@@ -107,7 +123,7 @@ write_from_the_host() {
     # fails, which reads back as an empty file written to the drive.
     uf2_abs=$(cd "$(dirname "$uf2")" && pwd)/$(basename "$uf2")
     unc="\\\\wsl.localhost\\${distro}$(printf '%s' "$uf2_abs" | sed 's#/#\\#g')"
-    powershell.exe -NoProfile -Command "
+    timeout 30 powershell.exe -NoProfile -Command "
         \$volume = \$null
         for (\$i = 0; \$i -lt 20 -and -not \$volume; \$i++) {
             \$volume = Get-Volume | Where-Object { \$_.FileSystemLabel -like '*RP*' } | Select-Object -First 1
@@ -135,11 +151,40 @@ write_from_the_host() {
 # sitting in BOOTSEL: picotool asks the running bootrom to reboot into BOOTSEL
 # and then loads the image. Without it a board that was simply plugged in is
 # reported as no accessible device.
+if is_wsl; then
+    attach_to_wsl || true
+fi
+
 picotool_bin="${RH_PICOTOOL:-picotool}"
+if ! command -v "$picotool_bin" >/dev/null 2>&1 && [ -x "$HOME/.local/bin/picotool" ]; then
+    picotool_bin="$HOME/.local/bin/picotool"
+fi
 if command -v "$picotool_bin" >/dev/null 2>&1; then
-    echo "flash: over PICOBOOT, through $(basename "$picotool_bin")" >&2
-    if "$picotool_bin" load -f -x "$elf"; then
+    picotool_path="$(command -v "$picotool_bin")"
+    echo "flash: over PICOBOOT, through $(basename "$picotool_path")" >&2
+    if timeout 20 "$picotool_path" load -f -x "$elf"; then
         exit 0
+    fi
+    # A running board asked to reboot into BOOTSEL comes back on the Windows
+    # side of the USB bridge; attach that device before trying again.
+    attach_to_wsl || true
+    if timeout 20 "$picotool_path" load -x "$elf"; then
+        exit 0
+    fi
+    # The PICOBOOT device is a USB device owned by root. A keeper that runs as
+    # the user cannot open it, and the fallback drive is not there for a board
+    # that is running a program. Passwordless sudo is used only when it is
+    # already available; a host that would prompt is left to the drive path.
+    if [ "$(id -u)" -ne 0 ] && command -v sudo >/dev/null 2>&1 &&
+        sudo -n true >/dev/null 2>&1; then
+        echo "flash: retrying PICOBOOT through passwordless sudo" >&2
+        attach_to_wsl || true
+        if timeout 20 sudo -n "$picotool_path" load -x "$elf"; then
+            exit 0
+        fi
+        if timeout 20 sudo -n "$picotool_path" load -f -x "$elf"; then
+            exit 0
+        fi
     fi
     echo "flash: PICOBOOT could not load the image; trying the bootrom's drive" >&2
 fi

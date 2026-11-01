@@ -41,12 +41,35 @@ config:
   kconfig_fragments:
     - Kconfig
 
+# What this board can be in a deployment. A Pico 2W has the radio and the buses,
+# so it can measure, relay, or gateway; it has no host filesystem or container
+# runtime, so it is not a `host`.
+capabilities:
+  gateway: true
+  relay: true
+  node: true
+  edge: true
+  host: false
+  wireless: true
+  ethernet: false
+  links: "uart console usb wifi socket"
+  buses: "uart usb i2c spi onewire gpio adc pwm"
+  deploy: "flash"
+
+# How a deployment reaches this board: it is flashed, and its image is built for
+# the ARM core it carries. The target name is the board's own `module.name`.
+deployment:
+  kconfig: "CONFIG_RH_BOARD_PICO_2W=y"
+  method: "flash"
+  arch: "arm"
+
 package:
   kind: library
   binary: false
 
 board:
   designation: PICO_2W
+  summary: "A Pico 2W: RP2350 with WiFi, a 1-Wire bus, and USB serial."
   mcu: RP2350
   family: RP2350
   core: Cortex-M33

@@ -10,7 +10,9 @@
 
 module:
   name: robohub-pico
-  id: robohub-pico
+  id: robohub.platform.pico
+  previous_ids:
+    - robohub-pico
   type: platform
   version: 0.2.0
   description: >

@@ -11,7 +11,9 @@
 
 module:
   name: hello-world
-  id: robohub-pico.examples.rho.hello_world
+  id: robohub.example.hello-world-pico-rho
+  previous_ids:
+    - robohub-pico.examples.rho.hello_world
   type: module
   version: 0.1.0
   description: >

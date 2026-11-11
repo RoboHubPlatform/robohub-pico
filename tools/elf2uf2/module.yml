@@ -8,7 +8,9 @@
 
 module:
   name: elf2uf2
-  id: robohub-pico.tools.elf2uf2
+  id: robohub.app.elf2uf2
+  previous_ids:
+    - robohub-pico.tools.elf2uf2
   type: rho
   version: 0.1.0
   description: Converts ELF firmware to UF2 format for RP2350 boards

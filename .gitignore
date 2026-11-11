@@ -10,3 +10,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+
+# Resolved on each machine; it records where this machine keeps the modules.
+rho.lock

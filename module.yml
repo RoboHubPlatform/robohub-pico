@@ -87,6 +87,7 @@ build:
     - src/platform/pico_fault.c
     - src/platform/pico_platform.c
     - src/platform/pico_tick.c
+    - src/platform/pico_nonce.c
 
 depends:
   - name: robohub-common

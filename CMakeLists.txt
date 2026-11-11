@@ -110,6 +110,7 @@ set(ROBOHUB_PICO_SOURCES
     src/platform/pico_fault.c
     src/platform/pico_platform.c
     src/platform/pico_tick.c
+    src/platform/pico_nonce.c
 )
 
 if(RHO_ROBO_CONFIG AND EXISTS "${RHO_ROBO_CONFIG}")
@@ -227,7 +228,7 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   # `pico_stdlib` is the SDK's own view of a program: the startup code, the
   # linker script and the runtime, carried as flags and sources on a target.
   # Linking it is what makes this an SDK build rather than one beside it.
-  target_link_libraries(robohub-pico INTERFACE pico_stdlib)
+  target_link_libraries(robohub-pico INTERFACE pico_stdlib pico_rand)
 
   # The SDK's peripheral libraries, for the HALs that reach into a peripheral
   # the standard library does not carry. `pico_stdlib` is the startup and the

@@ -7,6 +7,7 @@
 
 module:
   name: pico2w
+  id: robohub-pico.boards.pico2w
   type: platform-board
   version: 0.1.0
   description: >

@@ -16,6 +16,7 @@
 
 module:
   name: freertos-hello-world
+  id: robohub-pico.examples.c.freertos_hello_world
   type: module
   version: 0.1.0
   description: >

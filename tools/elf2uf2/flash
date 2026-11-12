@@ -83,7 +83,17 @@ attach_to_wsl() {
     command -v powershell.exe >/dev/null 2>&1 || return 1
     listing="$(timeout 10 powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r' || true)"
     busid="$(printf '%s\n' "$listing" | awk '$2 ~ /^2e8a:/ && $NF == "Shared" { print $1; exit }')"
-    [ -n "$busid" ] || return 1
+    if [ -z "$busid" ]; then
+        # A board Windows has not shared yet — the BOOTSEL device is a USB
+        # device of its own, so it is new to usbipd the first time — is bound
+        # once, which only an administrator may do: Windows asks the person at
+        # the machine, and the board stays shared after that.
+        unshared="$(printf '%s\n' "$listing" | awk '$2 ~ /^2e8a:/ && $0 ~ /Not shared/ { print $1; exit }')"
+        [ -n "$unshared" ] || return 1
+        echo "flash: sharing $unshared with WSL; Windows asks for an administrator to allow it" >&2
+        timeout 60 powershell.exe -NoProfile -Command "Start-Process usbipd -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList 'bind --busid $unshared'" >/dev/null 2>&1 || return 1
+        busid="$unshared"
+    fi
     echo "flash: attaching $busid to WSL for PICOBOOT" >&2
     timeout 15 powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $busid" >/dev/null 2>&1 || return 1
     sleep 2

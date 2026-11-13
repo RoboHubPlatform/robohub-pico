@@ -16,3 +16,7 @@ A Pico in BOOTSEL that Windows has not shared with WSL yet is shared by the
 flash entry, which asks Windows for an administrator's consent once, and then
 attached; before, only a board already shared was attached, and the flash found
 no device.
+
+## [0.2.2] - 2026-11-13
+
+The flash entry finds powershell.exe where Windows keeps it when a service's PATH lost the Windows directories, so on WSL it can still attach a board, load it over PICOBOOT or write the UF2 through Windows.

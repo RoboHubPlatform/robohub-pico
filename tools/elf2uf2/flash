@@ -53,6 +53,19 @@ uf2="$elf.uf2"
 # mount points rather than guessing a name means the answer does not depend on
 # what a machine chose to call it: a desktop mounts removable media under the
 # user's own name, a server or a container mounts it wherever it was told to.
+# powershell.exe is Windows', reached through WSL's interop. A service started
+# with a PATH that lost the Windows directories still finds it where Windows
+# keeps it.
+if grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null && ! command -v powershell.exe >/dev/null 2>&1; then
+    for candidate in /mnt/c/Windows/System32/WindowsPowerShell/v1.0 /mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0; do
+        if [ -x "$candidate/powershell.exe" ]; then
+            PATH="$PATH:$candidate"
+            export PATH
+            break
+        fi
+    done
+fi
+
 find_uf2_drive() {
     for candidate in /media/* /media/*/* /run/media/* /run/media/*/* /mnt/* /mnt/*/*; do
         if [ -f "$candidate/INFO_UF2.TXT" ]; then

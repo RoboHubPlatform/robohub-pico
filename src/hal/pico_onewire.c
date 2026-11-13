@@ -15,6 +15,7 @@
 #ifdef RH_PICO_SDK
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
 #endif
 
 /* -------------------------------------------------------------------------- */
@@ -75,8 +76,14 @@ static inline void ow_delay(rh_u32 us)
     busy_wait_us_32(us);
 }
 
+/* Each slot runs with interrupts off. A slot is tens of microseconds and the
+ * part samples the line at fixed points from the edge that started it: a USB or
+ * Wi-Fi interrupt that lands inside one stretches a one into a zero, or makes a
+ * read sample the line after the part let go — a failed CRC, or a reset that
+ * never sees the presence pulse. */
 static void ow_write_bit(RoboHubPicoOneWire* bus, rh_u32 bit)
 {
+    uint32_t saved = save_and_disable_interrupts();
     if (bit != 0u) {
         ow_pull_low(bus);
         ow_delay(OW_WRITE1_LOW_US);
@@ -88,15 +95,18 @@ static void ow_write_bit(RoboHubPicoOneWire* bus, rh_u32 bit)
         ow_release(bus);
         ow_delay(OW_WRITE0_TAIL_US);
     }
+    restore_interrupts(saved);
 }
 
 static rh_u32 ow_read_bit(RoboHubPicoOneWire* bus)
 {
+    uint32_t saved = save_and_disable_interrupts();
     ow_pull_low(bus);
     ow_delay(OW_READ_LOW_US);
     ow_release(bus);
     ow_delay(OW_READ_SAMPLE_US);
     rh_u32 bit = ow_read_pin(bus);
+    restore_interrupts(saved);
     ow_delay(OW_READ_TAIL_US);
     return bit & 0x01u;
 }
@@ -169,9 +179,13 @@ RoboHubError pico_onewire_reset(RoboHubOneWire* self, rh_bool* present)
     RoboHubPicoOneWire* bus = ow(self);
     ow_pull_low(bus);
     ow_delay(OW_RESET_LOW_US);
+    /* The presence window is 60-240 us after release: sampled with interrupts
+     * off, so an interrupt cannot move the sample past it. */
+    uint32_t saved = save_and_disable_interrupts();
     ow_release(bus);
     ow_delay(OW_PRESENCE_WAIT_US);
     *present = (ow_read_pin(bus) == 0u) ? RH_TRUE : RH_FALSE;
+    restore_interrupts(saved);
     ow_delay(OW_PRESENCE_TAIL_US);
     return ROBOHUB_OK;
 #else

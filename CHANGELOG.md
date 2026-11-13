@@ -20,3 +20,7 @@ no device.
 ## [0.2.2] - 2026-11-13
 
 The flash entry finds powershell.exe where Windows keeps it when a service's PATH lost the Windows directories, so on WSL it can still attach a board, load it over PICOBOOT or write the UF2 through Windows.
+
+## [0.2.3] - 2026-11-13
+
+The 1-Wire bus runs each bit slot and the presence sample with interrupts off: a USB or Wi-Fi interrupt inside a slot stretched it, which read as a failed CRC or a missing presence pulse from the DS18B20.

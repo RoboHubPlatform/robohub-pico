@@ -24,3 +24,7 @@ The flash entry finds powershell.exe where Windows keeps it when a service's PAT
 ## [0.2.3] - 2026-11-13
 
 The 1-Wire bus runs each bit slot and the presence sample with interrupts off: a USB or Wi-Fi interrupt inside a slot stretched it, which read as a failed CRC or a missing presence pulse from the DS18B20.
+
+## [0.3.0] - 2026-11-14
+
+The board key is kept in the last two flash sectors, reserved at link time. A production preset signs the image and lists the OTP steps, which `rho flash --production` runs only when confirmed. Host tests configure without the SDK.

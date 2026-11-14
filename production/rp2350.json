@@ -1,0 +1,20 @@
+{
+  "name": "rp2350 production: secure boot (signed images, boot key hash in OTP)",
+  "summary": "The bootrom boots only images signed with your key: the SHA-256 hash of its public key is written to OTP and secure boot is switched on in OTP. OTP rows are one-time programmable; nothing here can be undone.",
+  "build": "CONFIG_RH_PRODUCTION=y in the project's configuration and RH_SECURE_BOOT_SIGNING_KEY naming the secp256k1 PEM key; the build signs the image and writes build/output/<program>.otp.json. Set RH_PICO_OTP_JSON to that file. Keep the key: once its hash is in OTP the board boots nothing else.",
+  "steps": [
+    {
+      "description": "load the OTP rows the signed build produced: BOOTKEY0 (the SHA-256 hash of the signing public key), BOOT_FLAGS1.KEY_VALID for key 0, and CRIT1.SECURE_BOOT_ENABLE. The board must be in BOOTSEL mode and reachable by picotool over USB",
+      "irreversible": true,
+      "when": "before-flash",
+      "command": "picotool otp load {env:RH_PICO_OTP_JSON}",
+      "show": "{env:RH_PICO_OTP_JSON}"
+    }
+  ],
+  "notes": [
+    "The OTP file's contents are printed above in full: every row in it is burned. Read them before typing the board name.",
+    "The image is written after the OTP rows, while the board is still in BOOTSEL mode; it must be the signed image built with the same key, or the board will not boot it.",
+    "Not done by this plan, and each irreversible on its own: CRIT1.DEBUG_DISABLE (turns off SWD), and moving the device keystore from flash into OTP rows (planned; OTP rows cannot be rewritten, so a rotated key would use up a row per epoch). Until then the keystore lives in the last two flash sectors, readable over SWD unless debug is disabled.",
+    "picotool must be built with mbedtls (the SDK's lib/mbedtls submodule) for the build to sign, and with USB support for this step to reach the board."
+  ]
+}

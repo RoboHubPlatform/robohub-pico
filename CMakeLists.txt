@@ -57,6 +57,18 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 # ---------------------------------------------------------------------------
+# Host vs bare-metal
+# ---------------------------------------------------------------------------
+# Decided before the SDK, because a host build must not initialise it:
+# pico_sdk_init() selects the Arm cross toolchain and enables C++ through it,
+# which leaves a host configuration without a working compiler (the vendored
+# SDK is always found, so "SDK present" does not mean "bare-metal build").
+set(ROBOHUB_PICO_HOSTED OFF)
+if(PROJECT_IS_TOP_LEVEL AND RHO_BUILD_HOST_TESTS AND NOT RHO_TARGET_IS_BAREMETAL)
+  set(ROBOHUB_PICO_HOSTED ON)
+endif()
+
+# ---------------------------------------------------------------------------
 # The Pico SDK
 # ---------------------------------------------------------------------------
 # A bare-metal build of this board is the SDK's build. The board's toolchain
@@ -77,7 +89,9 @@ if(NOT DEFINED PICO_SDK_PATH)
 endif()
 
 set(ROBOHUB_PICO_SDK_AVAILABLE FALSE)
-if(PICO_SDK_PATH AND EXISTS "${PICO_SDK_PATH}")
+if(ROBOHUB_PICO_HOSTED)
+  message(STATUS "[robohub-pico] host build: the Pico SDK is not initialised; the sources build as host stubs")
+elseif(PICO_SDK_PATH AND EXISTS "${PICO_SDK_PATH}")
   message(STATUS "[robohub-pico] Pico SDK at ${PICO_SDK_PATH}")
   if(COMMAND pico_sdk_init)
     pico_sdk_init()
@@ -95,14 +109,6 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# Host vs bare-metal
-# ---------------------------------------------------------------------------
-set(ROBOHUB_PICO_HOSTED OFF)
-if(PROJECT_IS_TOP_LEVEL AND RHO_BUILD_HOST_TESTS AND NOT RHO_TARGET_IS_BAREMETAL)
-  set(ROBOHUB_PICO_HOSTED ON)
-endif()
-
-# ---------------------------------------------------------------------------
 # Sources
 # ---------------------------------------------------------------------------
 set(ROBOHUB_PICO_SOURCES
@@ -111,6 +117,7 @@ set(ROBOHUB_PICO_SOURCES
     src/platform/pico_platform.c
     src/platform/pico_tick.c
     src/platform/pico_nonce.c
+    src/platform/pico_keystore.c
 )
 
 if(RHO_ROBO_CONFIG AND EXISTS "${RHO_ROBO_CONFIG}")
@@ -172,7 +179,20 @@ endif()
 # ---------------------------------------------------------------------------
 # Library target
 # ---------------------------------------------------------------------------
+# A host build has no SDK, so the sources that need one unconditionally are left
+# out (the nonce comes from pico_rand), and the board's own header directory,
+# which a bare-metal build gets from the board's program.cmake, is named here.
+if(ROBOHUB_PICO_HOSTED)
+  list(REMOVE_ITEM ROBOHUB_PICO_SOURCES src/platform/pico_nonce.c)
+endif()
+
 add_library(robohub-pico STATIC ${ROBOHUB_PICO_SOURCES})
+
+if(ROBOHUB_PICO_HOSTED)
+  set(ROBOHUB_PICO_HOST_BOARD "pico2w" CACHE STRING "the board whose bsp.h a host build reads")
+  target_include_directories(robohub-pico PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/boards/${ROBOHUB_PICO_HOST_BOARD}/bsp)
+endif()
 
 # A contract macro: which platform this is, for a module that behaves
 # differently on one — the FreeRTOS configuration reads it.
@@ -191,6 +211,13 @@ target_include_directories(robohub-pico PUBLIC
 )
 
 target_link_libraries(robohub-pico PUBLIC robohub-common)
+
+# The device keystore's strong implementation is taken from this archive on
+# every link, whatever order the archives come in: the platform's keystore
+# object defines `rh_keystore_platform`, which nothing else defines, so naming it
+# undefined pulls that object in, and its rh_keystore_load/store override the
+# weak defaults in robohub-common even if those were seen first.
+target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_keystore_platform")
 
 if(ROBOHUB_PICO_SDK_AVAILABLE)
   # `RH_PICO_SDK` is the name the sources branch on. A different name here
@@ -229,6 +256,25 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   # linker script and the runtime, carried as flags and sources on a target.
   # Linking it is what makes this an SDK build rather than one beside it.
   target_link_libraries(robohub-pico INTERFACE pico_stdlib pico_rand)
+
+  # The device keystore: the last two 4 KiB sectors of flash, erased and
+  # programmed through the SDK (hardware_flash) with interrupts off and the other
+  # core locked out (pico_flash's flash_safe_execute). The flash size is the
+  # board's, as the SDK read it from the board header; the source checks it
+  # against PICO_FLASH_SIZE_BYTES so the two cannot disagree.
+  #
+  # The reservation is a link-time check rather than a shortened FLASH region:
+  # the SDK's linker script is left as the vendor wrote it, and an implicit
+  # script beside it fails the link when the image reaches the keystore.
+  if(NOT DEFINED PICO_FLASH_SIZE_BYTES)
+    set(PICO_FLASH_SIZE_BYTES 4194304)
+  endif()
+  math(EXPR ROBOHUB_KEYSTORE_RESERVED_START "0x10000000 + ${PICO_FLASH_SIZE_BYTES} - 2 * 4096" OUTPUT_FORMAT HEXADECIMAL)
+  target_compile_definitions(robohub-pico PRIVATE RH_KEYSTORE_FLASH_SIZE=${PICO_FLASH_SIZE_BYTES})
+  target_link_libraries(robohub-pico INTERFACE hardware_flash pico_flash)
+  target_link_options(robohub-pico INTERFACE
+    "LINKER:--defsym=RH_KEYSTORE_RESERVED_START=${ROBOHUB_KEYSTORE_RESERVED_START}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pico_keystore_reserve.ld")
 
   # The SDK's peripheral libraries, for the HALs that reach into a peripheral
   # the standard library does not carry. `pico_stdlib` is the startup and the

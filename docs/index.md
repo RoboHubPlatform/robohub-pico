@@ -31,6 +31,22 @@ the reboot, because the USB device comes back on the other side of the bridge.
 Passwordless `sudo` is used only when it is already available; otherwise the
 drive is the fallback.
 
+### Flashing as a user
+
+picotool opens the bootrom's USB device, which belongs to root until a udev rule
+says otherwise. The platform carries the rule (`udev/60-robohub-pico.rules`,
+for every Raspberry Pi device, vendor `2e8a`, to the `plugdev` group) and
+declares it in `system_deps`, so `rho doctor` says when it is missing. Install
+it once, then unplug and plug the board in again (on WSL, attach it again):
+
+```sh
+rho keeper install --path <robohub-pico> robohub-pico 60-robohub-pico.rules
+```
+
+Without it the flash says that picotool found the board but may not open it,
+names that command, and falls back to the bootrom's drive — slower, and on WSL
+done through the Windows host.
+
 ## The examples
 
 `examples/c/hello_world` is the smallest program that runs on real hardware.

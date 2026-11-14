@@ -1,7 +1,5 @@
 # RoboHub Pico Platform
 
-**Version:** 0.2.0
-
 The RP2040 and RP2350 platform for the RoboHub ecosystem: the interfaces
 declared by `robohub-common`, implemented on Raspberry Pi Pico boards, with
 board support packages for the Pico boards.

@@ -9,8 +9,8 @@ module elf2uf2
 // The tool is the platform's own: rho-flash orchestrates, this converts and
 // copies, and the JSON on stdout is what rho-flash reads back.
 
-extern fn read_file(path: string) -> [u8]
-extern fn write_file(path: string, data: [u8])
+extern fn read_file(path: string) -> Slice[u8]
+extern fn write_file(path: string, data: Slice[u8])
 extern fn get_args() -> string
 
 // UF2 block fields, at the offsets the format fixes.
@@ -30,6 +30,16 @@ const UF2_BLOCK_SIZE: u32 = 512
 // exactly one, so a larger payload is a file it reads and refuses.
 const UF2_PAYLOAD: u32 = 256
 
+// The largest image this converts: the 16 MB an RP2 part can map as flash, one
+// block per 256-byte page. The file is built in one buffer of that size and
+// written once, so an image that would not fit a board's flash is refused by
+// name rather than half written.
+const UF2_MAX_BLOCKS: u32 = 65536
+const UF2_MAX_BYTES: u32 = 33554432
+// The most loadable segments an image may have. A linked firmware has a handful
+// (text, data, a boot stage); more is an input this tool was not meant for.
+const MAX_SEGMENTS: u32 = 32
+
 // ELF header offsets (32-bit, little-endian).
 const ELF_MAGIC: u32 = 0x464C457F
 const ELF_PHOFF: u32 = 28
@@ -45,7 +55,7 @@ const PH_FILESZ: u32 = 16
 const PT_LOAD: u32 = 1
 
 // read_u32_le reads a little-endian 32-bit word from a byte array.
-fn read_u32_le(data: [u8], offset: u32) -> u32 {
+fn read_u32_le(data: Slice[u8], offset: u32) -> u32 {
     if offset + 3 >= len(data) {
         return 0
     }
@@ -53,7 +63,7 @@ fn read_u32_le(data: [u8], offset: u32) -> u32 {
 }
 
 // read_u16_le reads a little-endian 16-bit word from a byte array.
-fn read_u16_le(data: [u8], offset: u32) -> u16 {
+fn read_u16_le(data: Slice[u8], offset: u32) -> u16 {
     if offset + 1 >= len(data) {
         return 0
     }
@@ -61,7 +71,7 @@ fn read_u16_le(data: [u8], offset: u32) -> u16 {
 }
 
 // write_u32_le writes a little-endian 32-bit word into a byte array.
-fn write_u32_le(data: [u8], offset: u32, value: u32) {
+fn write_u32_le(data: Slice[u8], offset: u32, value: u32) {
     data[offset] = u8(value & 0xFF)
     data[offset + 1] = u8((value >> 8) & 0xFF)
     data[offset + 2] = u8((value >> 16) & 0xFF)
@@ -81,17 +91,8 @@ fn align_up(value: u32, boundary: u32) -> u32 {
     return value + (boundary - remainder)
 }
 
-// append_block copies one 512-byte block onto the output.
-fn append_block(out: [u8], block: [u8]) -> [u8] {
-    var i: u32 = 0
-    while i < UF2_BLOCK_SIZE {
-        out = append(out, block[i])
-        i = i + 1
-    }
-    return out
-}
-
-// make_block builds one UF2 block for a flash page.
+// make_block writes one UF2 block for a flash page into `block`, which is the
+// block's 512 bytes of the output and arrives zeroed.
 //
 // The page is assembled from every segment that covers part of it, because two
 // of them can share one: a program's text and its initialised data meet inside
@@ -102,13 +103,7 @@ fn append_block(out: [u8], block: [u8]) -> [u8] {
 //
 // The family is the board's, not this program's: the bootrom compares it with
 // the part it is running on and refuses a file that names another.
-fn make_block(page: u32, block_no: u32, total: u32, source: [u8], seg_addrs: [u32], seg_sizes: [u32], seg_offsets: [u32], family: u32) -> [u8] {
-    var block: [u8]
-    var i: u32 = 0
-    while i < UF2_BLOCK_SIZE {
-        block = append(block, 0)
-        i = i + 1
-    }
+fn make_block(block: Slice[u8], page: u32, block_no: u32, total: u32, source: Slice[u8], seg_addrs: Slice[u32], seg_sizes: Slice[u32], seg_offsets: Slice[u32], family: u32) {
     write_u32_le(block, 0, UF2_MAGIC_START0)
     write_u32_le(block, 4, UF2_MAGIC_START1)
     write_u32_le(block, 8, UF2_FLAG_FAMILY)
@@ -117,7 +112,7 @@ fn make_block(page: u32, block_no: u32, total: u32, source: [u8], seg_addrs: [u3
     write_u32_le(block, 20, block_no)
     write_u32_le(block, 24, total)
     write_u32_le(block, 28, family)
-    i = 0
+    var i: u32 = 0
     while i < UF2_PAYLOAD {
         var address: u32 = page + i
         var s: u32 = 0
@@ -130,13 +125,12 @@ fn make_block(page: u32, block_no: u32, total: u32, source: [u8], seg_addrs: [u3
         i = i + 1
     }
     write_u32_le(block, 508, UF2_MAGIC_END)
-    return block
 }
 
 // convert reads the ELF and writes the UF2. It returns the block count, or 0
 // when the input is not a usable ELF.
 fn convert(input_path: string, output_path: string, family: u32) -> u32 {
-    var data: [u8] = read_file(input_path)
+    var data: Slice[u8] = read_file(input_path)
     if len(data) < 52 {
         print("{\"status\":\"error\",\"error\":\"input too small for an ELF header\"}\n")
         return 0
@@ -151,9 +145,12 @@ fn convert(input_path: string, output_path: string, family: u32) -> u32 {
 
     // Collect the loadable segments before emitting anything: a page is built
     // from all of them, so they have to be known before the first one is.
-    var seg_addrs: [u32]
-    var seg_sizes: [u32]
-    var seg_offsets: [u32]
+    var addr_store: u32[MAX_SEGMENTS]
+    var size_store: u32[MAX_SEGMENTS]
+    var offset_store: u32[MAX_SEGMENTS]
+    var seg_addrs = addr_store[..0]
+    var seg_sizes = size_store[..0]
+    var seg_offsets = offset_store[..0]
     var i: u32 = 0
     while i < phnum {
         var base: u32 = phoff + i * phentsize
@@ -165,6 +162,10 @@ fn convert(input_path: string, output_path: string, family: u32) -> u32 {
                 // `.data`, copied up at startup — has a virtual address in RAM
                 // and a physical one in flash, and a block written to the RAM
                 // address is one the bootrom has nowhere to put.
+                if len(seg_addrs) == MAX_SEGMENTS {
+                    print("{\"status\":\"error\",\"error\":\"more than 32 loadable segments\"}\n")
+                    return 0
+                }
                 var address: u32 = read_u32_le(data, base + PH_PADDR)
                 if address == 0 {
                     address = read_u32_le(data, base + PH_VADDR)
@@ -196,13 +197,18 @@ fn convert(input_path: string, output_path: string, family: u32) -> u32 {
         i = i + 1
     }
     var total: u32 = (last_page - first_page) / UF2_PAYLOAD
+    if total > UF2_MAX_BLOCKS {
+        print("{\"status\":\"error\",\"error\":\"image spans more than 16 MB of flash\"}\n")
+        return 0
+    }
 
-    var out: [u8]
+    var store: u8[UF2_MAX_BYTES]
+    var out = store[..total * UF2_BLOCK_SIZE]
     var block_no: u32 = 0
     var page: u32 = first_page
     while page < last_page {
-        var block: [u8] = make_block(page, block_no, total, data, seg_addrs, seg_sizes, seg_offsets, family)
-        out = append_block(out, block)
+        var at: u32 = block_no * UF2_BLOCK_SIZE
+        make_block(out[at..at + UF2_BLOCK_SIZE], page, block_no, total, data, seg_addrs, seg_sizes, seg_offsets, family)
         block_no = block_no + 1
         page = page + UF2_PAYLOAD
     }

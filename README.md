@@ -91,3 +91,9 @@ machine keeps elsewhere.
 ## Release history
 
 [CHANGELOG.md](CHANGELOG.md) — the changes in 0.2.0 and earlier releases.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+The vendored Raspberry Pi Pico SDK and FreeRTOS kernel keep their own licences; see [THIRD_PARTY.md](THIRD_PARTY.md).

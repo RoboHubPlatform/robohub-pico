@@ -28,3 +28,7 @@ The 1-Wire bus runs each bit slot and the presence sample with interrupts off: a
 ## [0.3.0] - 2026-11-14
 
 The board key is kept in the last two flash sectors, reserved at link time. A production preset signs the image and lists the OTP steps, which `rho flash --production` runs only when confirmed. Host tests configure without the SDK.
+
+## [0.3.1] - 2026-11-14
+
+The platform carries the udev rule a user needs to flash a board in BOOTSEL (`udev/60-robohub-pico.rules`, declared in `system_deps`, reported by `rho doctor`, installed by `rho keeper install`). When picotool finds the board but may not open it, the flash says so and names the command that installs the rule, before it falls back to the bootrom's drive.

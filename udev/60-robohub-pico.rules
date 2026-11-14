@@ -1,0 +1,12 @@
+# Raspberry Pi RP2040 and RP2350 boards, for the user who flashes them.
+#
+# Without it every Raspberry Pi USB device (vendor 2e8a) belongs to root, and
+# picotool, run as a user, finds a board in BOOTSEL and cannot open it ("appears
+# to be in BOOTSEL mode, but picotool was unable to connect"). The plugdev group
+# is the one a desktop user is in; uaccess covers a local seat as well.
+#
+#   0003  RP2040 bootrom (BOOTSEL)       000f  RP2350 bootrom (BOOTSEL)
+#   0009  board running pico-sdk USB     000a  board running pico-sdk USB (RP2040)
+#   000c  Raspberry Pi Debug Probe
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2e8a", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", MODE="0660", GROUP="plugdev", TAG+="uaccess"

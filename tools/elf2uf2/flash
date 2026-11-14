@@ -185,15 +185,28 @@ fi
 if command -v "$picotool_bin" >/dev/null 2>&1; then
     picotool_path="$(command -v "$picotool_bin")"
     echo "flash: over PICOBOOT, through $(basename "$picotool_path")" >&2
-    if timeout 20 "$picotool_path" load -f -x "$elf"; then
+    picotool_log="$(mktemp)"
+    trap 'rm -f "$picotool_log"' EXIT
+    # picotool's own words are kept as well as shown: they say whether it could
+    # not open the board, which has a fix this script can name.
+    if timeout 20 "$picotool_path" load -f -x "$elf" >"$picotool_log" 2>&1; then
+        cat "$picotool_log" >&2
         exit 0
     fi
+    cat "$picotool_log" >&2
     # A running board asked to reboot into BOOTSEL comes back on the Windows
     # side of the USB bridge; attach that device before trying again.
     attach_to_wsl || true
-    if timeout 20 "$picotool_path" load -x "$elf"; then
+    if timeout 20 "$picotool_path" load -x "$elf" >"$picotool_log.2" 2>&1; then
+        cat "$picotool_log.2" >&2
+        rm -f "$picotool_log.2"
         exit 0
     fi
+    cat "$picotool_log.2" >&2
+    cat "$picotool_log.2" >>"$picotool_log"
+    rm -f "$picotool_log.2"
+    picotool_denied=""
+    grep -q 'unable to connect\|check your permissions' "$picotool_log" && picotool_denied=1
     # The PICOBOOT device is a USB device owned by root. A keeper that runs as
     # the user cannot open it, and the fallback drive is not there for a board
     # that is running a program. Passwordless sudo is used only when it is
@@ -208,6 +221,15 @@ if command -v "$picotool_bin" >/dev/null 2>&1; then
         if timeout 20 sudo -n "$picotool_path" load -f -x "$elf"; then
             exit 0
         fi
+    fi
+    if [ -n "$picotool_denied" ]; then
+        rules="$(cd "$(dirname "$0")/../.." && pwd)/udev/60-robohub-pico.rules"
+        echo "flash: picotool found the board in BOOTSEL but may not open it: this machine has no udev rule" >&2
+        echo "flash: for Raspberry Pi boards. Install it once with" >&2
+        echo "flash:   rho keeper install --path $(cd "$(dirname "$rules")/.." && pwd) robohub-pico 60-robohub-pico.rules" >&2
+        echo "flash: or by hand:" >&2
+        echo "flash:   sudo install -m 0644 $rules /etc/udev/rules.d/ && sudo udevadm control --reload-rules && sudo udevadm trigger" >&2
+        echo "flash: then unplug and plug the board in again (on WSL, attach it again)." >&2
     fi
     echo "flash: PICOBOOT could not load the image; trying the bootrom's drive" >&2
 fi

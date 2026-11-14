@@ -14,7 +14,7 @@ module:
   previous_ids:
     - robohub-pico
   type: platform
-  version: 0.3.0
+  version: 0.3.1
   description: >
     RoboHub platform for Raspberry Pi Pico (RP2040) and Pico 2/2W (RP2350).
     Implements the robohub-common HAL contracts using the Pico SDK.
@@ -24,6 +24,21 @@ module:
   created: "2026-10-06"
 
 platform: robohub
+
+
+# What flashing a board needs from the machine: permission to open the bootrom's
+# USB device. `rho doctor` reports it and `rho keeper fix` installs it (root, for
+# this one file only).
+system_deps:
+  udev_rules:
+    - name: 60-robohub-pico.rules
+      target_path: /etc/udev/rules.d/60-robohub-pico.rules
+      source: udev/60-robohub-pico.rules
+      description: >-
+        picotool, run as a user, cannot open a board in BOOTSEL without it; the
+        flash then falls back to the bootrom's drive, which is slower and on WSL
+        goes through the Windows host.
+      optional: true
 
 hardware:
   boards: boards/

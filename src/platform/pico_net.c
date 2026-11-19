@@ -295,6 +295,7 @@ static void udp_on_recv(void* arg, struct udp_pcb* pcb, struct pbuf* p,
 /*  Interface                                                                 */
 /* -------------------------------------------------------------------------- */
 
+// @req PICO-0009, PICO-NET-0003
 RoboHubError robohub_net_wifi_connect(const RoboHubWiFiConfig* config)
 {
     if (config == 0 || config->ssid == 0) {
@@ -477,6 +478,7 @@ int robohub_socket_send(RoboHubSocket socket, const void* data, rh_size len)
     return result;
 }
 
+// @req PICO-NET-0001
 int robohub_socket_recv(RoboHubSocket socket, void* data, rh_size len, rh_u32 timeout_ms)
 {
     rh_net_socket* self = (rh_net_socket*)socket;

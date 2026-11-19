@@ -64,12 +64,16 @@ extern "C" {
 /* -------------------------------------------------------------------------- */
 /*  I2C                                                                       */
 /* -------------------------------------------------------------------------- */
+/* Pins no other default here uses: GP16-GP19 are SPI0's below (the SDK's
+ * PICO_DEFAULT_SPI pins), so the two buses can be used together. The same
+ * numbers are in target.json and module.yml; tests/board_pins_test.py checks
+ * they agree and that no pin is claimed twice. */
 #define RH_I2C0_INSTANCE        i2c0
-#define RH_I2C0_SDA_PIN         16
-#define RH_I2C0_SCL_PIN         17
+#define RH_I2C0_SDA_PIN         8
+#define RH_I2C0_SCL_PIN         9
 #define RH_I2C1_INSTANCE        i2c1
-#define RH_I2C1_SDA_PIN         18
-#define RH_I2C1_SCL_PIN         19
+#define RH_I2C1_SDA_PIN         6
+#define RH_I2C1_SCL_PIN         7
 
 /* -------------------------------------------------------------------------- */
 /*  SPI                                                                       */

@@ -103,6 +103,7 @@ fn align_up(value: u32, boundary: u32) -> u32 {
 //
 // The family is the board's, not this program's: the bootrom compares it with
 // the part it is running on and refuses a file that names another.
+// @req PICO-FLASH-0007
 fn make_block(block: Slice[u8], page: u32, block_no: u32, total: u32, source: Slice[u8], seg_addrs: Slice[u32], seg_sizes: Slice[u32], seg_offsets: Slice[u32], family: u32) {
     write_u32_le(block, 0, UF2_MAGIC_START0)
     write_u32_le(block, 4, UF2_MAGIC_START1)
@@ -129,6 +130,7 @@ fn make_block(block: Slice[u8], page: u32, block_no: u32, total: u32, source: Sl
 
 // convert reads the ELF and writes the UF2. It returns the block count, or 0
 // when the input is not a usable ELF.
+// @req PICO-FLASH-0007
 fn convert(input_path: string, output_path: string, family: u32) -> u32 {
     var data: Slice[u8] = read_file(input_path)
     if len(data) < 52 {

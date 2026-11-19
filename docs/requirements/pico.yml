@@ -1,0 +1,144 @@
+# What the Pico platform gives RoboHub: the robohub-common contracts on the
+# RP2350 through the Pico SDK, the Pico 2W's board facts, flashing from the
+# machine RoboHub runs on (Linux and WSL), the device keystore in flash, the
+# nonce source, the production preset and what it needs on the machine. Written
+# in the R5 backfill from the documentation, the changelog, the code and an
+# example build; proposed until the maintainer approves them. The subsystems are
+# in hal.yml, board.yml, net.yml, flash.yml, keystore.yml and production.yml.
+level: NODE
+prefix: PICO
+title: Pico platform
+requirements:
+  - id: PICO-0001
+    title: The RP2350 answers the HAL contracts through the Pico SDK
+    statement: >
+      The platform shall implement the robohub-common contracts for GPIO, I2C,
+      SPI, UART, timer, RS485, 1-Wire, DHT, ADC and PWM on the RP2350 with the
+      Pico SDK, and a program built for pico2w shall link against them and the
+      SDK's startup without a second copy of either.
+    rationale: A device program is written against the contracts once; the platform is what makes it run on a Pico.
+    satisfies: [SYS-0046]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [hal]
+
+  - id: PICO-0002
+    title: The Pico 2W declares the facts a build and a planner read
+    statement: >
+      The pico2w board shall declare, in its target spec and manifest, the part
+      (RP2350, Cortex-M33), the compiler and SDK prelude, its pins and
+      peripherals, its flash tool, and the roles and links a Mesh planner may
+      offer it for.
+    rationale: Building, flashing and planning a deployment all read the board's own facts, so adding a board needs no keeper rebuild.
+    satisfies: [SYS-0042]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [board]
+
+  - id: PICO-0003
+    title: A Pico is flashed from the machine RoboHub runs on
+    statement: >
+      `rho flash -target pico2w <elf>` shall write the program to a Pico 2W over
+      USB from a Linux machine or WSL, whether the board is running a program or
+      held in BOOTSEL, and shall exit non-zero with a message saying what to do
+      when no board could be written.
+    rationale: Mesh builds and flashes a board as it enrols it; flashing must not need a vendor tool or a person dragging a file.
+    satisfies: [SYS-0049]
+    decided_by: [ADR-0002]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash]
+
+  - id: PICO-0004
+    title: A rotated board key survives a reset and a reflash
+    statement: >
+      The platform shall keep the rotated device key of robohub/keystore.h in
+      flash that no linked image occupies, so that a key stored after a rotation
+      is the key loaded after the next reset or reflash.
+    rationale: A key rotated without a cable must still be the key after a power cut or a firmware update, or the gateway refuses the board.
+    satisfies: [SYS-0022]
+    decided_by: [ADR-0001]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [keystore, key-rotation]
+
+  - id: PICO-0005
+    title: Nonces come from the SDK's random source
+    statement: >
+      robohub_platform_nonce on the Pico shall fill the buffer from the SDK's
+      pico_rand, which mixes the ring oscillator, the bus performance counters
+      and the time since boot.
+    rationale: A session's freshness rests on a nonce that never repeats, also across a reset.
+    satisfies: [SYS-0020, SYS-0023]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [security, nonce]
+
+  - id: PICO-0006
+    title: A production image boots only when signed with the owner's key
+    statement: >
+      A pico2w build with CONFIG_RH_PRODUCTION=y shall produce an image signed
+      for RP2350 secure boot and the OTP rows that enable it, and the one
+      irreversible step, loading those rows, shall run only through `rho flash
+      --production` after the rows are shown in full and the board's name is
+      typed.
+    rationale: A board that boots only its owner's images cannot be turned into someone else's, and burning OTP by accident must not be possible.
+    satisfies: [SYS-0043, SYS-0044]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [production, security, secure-boot]
+
+  - id: PICO-0007
+    title: The udev rule a user needs to flash is declared
+    statement: >
+      The platform's manifest shall declare in `system_deps` the optional udev
+      rule `60-robohub-pico.rules`, its source in the repository and its target
+      `/etc/udev/rules.d/60-robohub-pico.rules`.
+    rationale: rho doctor says when it is missing and rho keeper installs it, instead of the flash failing on a permission.
+    satisfies: [SYS-0004, SYS-0049]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [system-deps, udev, flash]
+
+  - id: PICO-0008
+    title: A project that enables FreeRTOS gets the RP2350 kernel port
+    statement: >
+      With RH_FREERTOS enabled and the SDK available, the platform shall add the
+      vendored kernel's RP2350_ARM_NTZ port as `FreeRTOS-Kernel`, with a
+      150 MHz CPU clock and a 32768-byte heap, so robohub-freertos uses it
+      instead of fetching another kernel.
+    rationale: Which kernel port a core needs is a fact about the core; upstream FreeRTOS carries no RP2350 port.
+    satisfies: [SYS-0046]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [freertos]
+
+  - id: PICO-0009
+    title: The network contract runs on the Pico W's radio
+    statement: >
+      With RH_NET enabled, the platform shall implement the robohub-common
+      network contract over the CYW43 radio and LwIP from the SDK, so a board
+      joins a WPA2 network and opens TCP and UDP sockets.
+    rationale: A board on Wi-Fi dials its gateway's uplink with the same code a host uses.
+    satisfies: [SYS-0046, SYS-0048]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [network, wifi]

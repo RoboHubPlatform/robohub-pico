@@ -1,0 +1,113 @@
+# Flashing a Pico: the platform's flash entry, the elf2uf2 converter and the
+# udev rule (tools/elf2uf2/flash, tools/elf2uf2/src/main.rho,
+# udev/60-robohub-pico.rules). Proposed until the maintainer approves them.
+level: SUB
+prefix: PICO-FLASH
+title: Pico flashing
+requirements:
+  - id: PICO-FLASH-0001
+    title: The ELF is converted by the platform's own elf2uf2
+    statement: >
+      The flash entry `tools/elf2uf2/flash` shall convert the ELF to
+      `<elf>.uf2` with the platform's elf2uf2, passing on the caller's arguments
+      (the family ID among them), and shall build elf2uf2 from its Rho source
+      first when it is not built.
+    rationale: A fresh clone flashes without a manual step, and the converter is the same on every machine.
+    satisfies: [PICO-0003]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, uf2]
+
+  - id: PICO-FLASH-0002
+    title: PICOBOOT first, the bootrom's drive as the fallback
+    statement: >
+      When picotool is found (RH_PICOTOOL, PATH, or ~/.local/bin/picotool) the
+      flash entry shall load the ELF with `picotool load -f -x` within 20 s,
+      retry once without `-f` after re-attaching the board, and only then write
+      the UF2 to a mounted drive that holds INFO_UF2.TXT; with no drive it shall
+      exit 1 telling the person to hold BOOTSEL while powering the board.
+    rationale: PICOBOOT needs no mount and reboots a running board into BOOTSEL itself; the drive works where picotool does not.
+    satisfies: [PICO-0003]
+    decided_by: [ADR-0002]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, picoboot]
+
+  - id: PICO-FLASH-0003
+    title: On WSL the board is shared, attached and written through Windows
+    statement: >
+      On WSL the flash entry shall attach a Raspberry Pi USB device (vendor 2e8a)
+      that usbipd lists as Shared, first binding one listed as Not shared with
+      the administrator's consent Windows asks for, attach it again after a
+      reboot into BOOTSEL, find powershell.exe under /mnt/c when PATH has lost
+      it, and write the UF2 to the drive from the Windows host, reading it
+      through \\wsl.localhost and flushing it to the device.
+    rationale: WSL's kernel cannot mount the drive, and a write through another filesystem's cache is a file the bootrom never sees.
+    satisfies: [PICO-0003]
+    decided_by: [ADR-0002]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, wsl]
+
+  - id: PICO-FLASH-0004
+    title: Root is used only when it asks for no password
+    statement: >
+      When PICOBOOT fails as a user, the flash entry shall retry through sudo
+      only when `sudo -n true` succeeds, and shall never prompt for a password.
+    rationale: The keeper flashes from a service with no terminal; a prompt would hang it, and asking for root is not the flash's call.
+    satisfies: [PICO-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, security, least-privilege]
+
+  - id: PICO-FLASH-0005
+    title: A missing udev rule is named with its fix
+    statement: >
+      When picotool reports that it found the board but could not connect, the
+      flash entry shall say that the machine lacks the udev rule and print the
+      `rho keeper install` command, and the manual install command, that put
+      `60-robohub-pico.rules` in place, before falling back to the drive.
+    rationale: A permission error with a named fix is fixed once; one without is worked around every time.
+    satisfies: [PICO-0003, PICO-0007]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, udev]
+
+  - id: PICO-FLASH-0006
+    title: The udev rule opens Raspberry Pi devices to plugdev only
+    statement: >
+      `udev/60-robohub-pico.rules` shall give USB and tty devices of vendor 2e8a
+      mode 0660, group plugdev and the uaccess tag, and nothing else.
+    rationale: picotool as a user must open a board in BOOTSEL; no device beyond Raspberry Pi's is opened up.
+    satisfies: [PICO-0007]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [udev, least-privilege]
+
+  - id: PICO-FLASH-0007
+    title: elf2uf2 writes one block per flash page and refuses what does not fit
+    statement: >
+      elf2uf2 shall write one 512-byte UF2 block per 256-byte flash page with
+      both start magics and the family ID it is given, assemble a page from every
+      loadable segment that covers part of it, and refuse with a message an image
+      spanning more than 16 MB of flash or holding more than 32 loadable
+      segments.
+    rationale: The RP2 bootrom accepts only page-sized payloads, checks both magics, and refuses two blocks for one page.
+    satisfies: [PICO-0003]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [flash, uf2]

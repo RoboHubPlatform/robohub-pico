@@ -1,0 +1,49 @@
+# The production preset: a signed image for RP2350 secure boot and the OTP plan
+# (boards/pico2w/program.cmake, production/production.conf, production/rp2350.json).
+# Proposed until the maintainer approves them.
+level: SUB
+prefix: PICO-PROD
+title: Pico production
+requirements:
+  - id: PICO-PROD-0001
+    title: A production build signs the image and writes the OTP rows
+    statement: >
+      With CONFIG_RH_PRODUCTION=y (off by default) a pico2w build shall seal the
+      ELF with pico_sign_binary using the secp256k1 PEM key named by
+      RH_SECURE_BOOT_SIGNING_KEY and write the OTP rows enabling secure boot for
+      that key to `build/output/<program>.otp.json`, and shall stop at configure
+      time with a message when the key is not set or the SDK cannot sign.
+    rationale: The key never sits in a tracked file, and a production build that silently produced an unsigned image would brick the board it is loaded on.
+    satisfies: [PICO-0006]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [production, secure-boot]
+
+  - id: PICO-PROD-0002
+    title: The plan lists the one irreversible step and shows what it burns
+    statement: >
+      `production/rp2350.json` shall have exactly one step, marked irreversible
+      and run before the image is written: `picotool otp load` of the file named
+      by RH_PICO_OTP_JSON, whose contents are shown in full before confirmation.
+    rationale: Building burns nothing; the person must see every OTP row before any is burned.
+    satisfies: [PICO-0006]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [production, otp]
+
+  - id: PICO-PROD-0003
+    title: Debug is never disabled by the plan
+    statement: >
+      The production plan shall not burn CRIT1.DEBUG_DISABLE nor move the
+      keystore into OTP.
+    rationale: Each is irreversible on its own and left to a deliberate, separate decision.
+    satisfies: [PICO-0006]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [production, otp]

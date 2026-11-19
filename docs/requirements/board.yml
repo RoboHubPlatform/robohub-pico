@@ -1,0 +1,47 @@
+# The Pico 2W's board facts: its target spec and manifest
+# (boards/pico2w/target.json, module.yml, targets/rp2350.json). Proposed until
+# the maintainer approves them.
+level: SUB
+prefix: PICO-BOARD
+title: Pico boards
+requirements:
+  - id: PICO-BOARD-0001
+    title: The pico2w target names the part, compiler and flash tool
+    statement: >
+      The pico2w target spec shall name the RP2350 with a Cortex-M33 core, the
+      compiler arm-none-eabi-gcc with the SDK prelude `sdk.cmake`, the defines
+      PICO_RP2350=1 and PICO_PICO2W=1, and the flash command `elf2uf2 {binary}
+      --family-id 0xe48bff59`.
+    rationale: The bootrom refuses a UF2 whose family is not the part's ARM Secure one, and the linker script and startup are the SDK's.
+    satisfies: [PICO-0002, PICO-0003]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [board, target]
+
+  - id: PICO-BOARD-0002
+    title: The pico2w manifest says what a planner may make of it
+    statement: >
+      The pico2w manifest shall declare the roles gateway, relay, node and edge,
+      not host; wireless; the links `uart console usb wifi socket`; the buses
+      `uart usb i2c spi onewire gpio adc pwm`; and a flash deployment selected by
+      CONFIG_RH_BOARD_PICO_2W=y.
+    rationale: The keeper's Mesh planner offers a board only for what its manifest says.
+    satisfies: [PICO-0002]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [board, planner]
+
+  - id: PICO-BOARD-0003
+    title: A board spec gives each GPIO one function
+    statement: The pico2w target spec, its module.yml and its board support package shall give the same GPIO for each pin, shall give no GPIO to two functions, shall put no pin on a GPIO the SDK board header gives to the CYW43 (GP23, GP24, GP25, GP29), shall put each peripheral pin where the RP2350's IO_BANK0 can route that function, and shall declare the user LED as the CYW43's WL_GPIO 0 rather than as an RP2350 GPIO.
+    rationale: "Defaults that share a pin cannot be used together and nothing said so: I2C1 sat on SPI0's SCK/TX, I2C0's SCL on SPI0's CSn, two PWM channels on the CYW43's control lines, and the LED was claimed on GP15, which lights nothing."
+    satisfies: [PICO-0002]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [board, pins]

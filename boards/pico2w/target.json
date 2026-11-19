@@ -23,9 +23,9 @@
   },
   "pins": {
     "user_led": {
-      "gpio": 15,
+      "cyw43_gpio": 0,
       "active_high": true,
-      "comment": "on-board LED, connected to GP15"
+      "comment": "The Pico 2W's LED is on the CYW43439, its WL_GPIO 0 (the SDK's CYW43_WL_GPIO_LED_PIN in boards/pico2_w.h, which defines no PICO_DEFAULT_LED_PIN); no RP2350 GPIO drives it. The platform's `user_led` GPIO instance is a plain RP2350 GPIO and does not light it: that needs the CYW43 driver (cyw43_arch_gpio_put), linked only with RH_NET."
     },
     "uart0_tx": {
       "gpio": 0,
@@ -41,16 +41,17 @@
       "gpio": 5
     },
     "i2c0_sda": {
-      "gpio": 16
+      "gpio": 8,
+      "comment": "I2C0 on GP8/GP9 and I2C1 on GP6/GP7: pins no other default here uses. GP16-GP19 are SPI0's (the SDK's PICO_DEFAULT_SPI pins), and GP23, GP24, GP25 and GP29 are the CYW43's."
     },
     "i2c0_scl": {
-      "gpio": 17
+      "gpio": 9
     },
     "i2c1_sda": {
-      "gpio": 18
+      "gpio": 6
     },
     "i2c1_scl": {
-      "gpio": 19
+      "gpio": 7
     },
     "spi0_tx": {
       "gpio": 19
@@ -67,6 +68,10 @@
     "onewire0_dq": {
       "gpio": 28
     },
+    "dht0_data": {
+      "gpio": 22,
+      "comment": "the DHT line, a software protocol on one pin"
+    },
     "adc0_ch0": {
       "gpio": 26,
       "comment": "the converter's first input"
@@ -75,10 +80,11 @@
       "gpio": 21
     },
     "pwm0_ch1": {
-      "gpio": 23
+      "gpio": 10,
+      "comment": "GP10 and GP11 (PWM slice 5 A/B): GP23 and GP24, listed before, are the CYW43's WL_REG_ON and WL_DATA lines on a Pico 2W, and driving them as PWM would cut the wireless chip off"
     },
     "pwm0_ch2": {
-      "gpio": 24
+      "gpio": 11
     }
   },
   "peripherals": {
@@ -99,15 +105,15 @@
     "i2c0": {
       "instance": "i2c0",
       "pins": {
-        "sda": "16",
-        "scl": "17"
+        "sda": "8",
+        "scl": "9"
       }
     },
     "i2c1": {
       "instance": "i2c1",
       "pins": {
-        "sda": "18",
-        "scl": "19"
+        "sda": "6",
+        "scl": "7"
       }
     },
     "spi0": {
@@ -129,8 +135,8 @@
       "instance": "pwm0",
       "pins": {
         "channel0": "21",
-        "channel1": "23",
-        "channel2": "24"
+        "channel1": "10",
+        "channel2": "11"
       }
     }
   },

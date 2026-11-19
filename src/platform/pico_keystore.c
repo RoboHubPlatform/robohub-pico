@@ -29,6 +29,7 @@
 
 /* Named on the link (--undefined) so this object, and the strong functions
  * below, are always taken from the platform's archive; see keystore_core.h. */
+// @req PICO-KEY-0005
 const char rh_keystore_platform[] = "pico";
 
 #ifdef RH_PICO_SDK
@@ -44,6 +45,7 @@ const char rh_keystore_platform[] = "pico";
 #define RH_KEYSTORE_FLASH_SIZE PICO_FLASH_SIZE_BYTES
 #endif
 
+// @req PICO-KEY-0003
 #if RH_KEYSTORE_FLASH_SIZE != PICO_FLASH_SIZE_BYTES
 #error "the keystore's flash size disagrees with the board's PICO_FLASH_SIZE_BYTES; the linker reservation would be in the wrong place"
 #endif
@@ -62,11 +64,13 @@ const char rh_keystore_platform[] = "pico";
 /** How long to wait for the other core to be locked out, in milliseconds. */
 #define RH_KEYSTORE_LOCKOUT_MS 100u
 
+// @req PICO-KEY-0001
 static uint32_t slot_offset(unsigned slot)
 {
     return RH_KEYSTORE_OFFSET + (uint32_t)slot * FLASH_SECTOR_SIZE;
 }
 
+// @req PICO-KEY-0001
 static int pico_read(void *ctx, unsigned slot, uint8_t *buf, size_t len)
 {
     (void)ctx;
@@ -92,6 +96,7 @@ static void pico_flash_op(void *param)
     }
 }
 
+// @req PICO-KEY-0004
 static int pico_erase(void *ctx, unsigned slot)
 {
     (void)ctx;
@@ -102,6 +107,7 @@ static int pico_erase(void *ctx, unsigned slot)
     return flash_safe_execute(pico_flash_op, &op, RH_KEYSTORE_LOCKOUT_MS) == PICO_OK ? 0 : -1;
 }
 
+// @req PICO-KEY-0004
 static int pico_write(void *ctx, unsigned slot, const uint8_t *buf, size_t len)
 {
     (void)ctx;
@@ -120,11 +126,13 @@ static int pico_write(void *ctx, unsigned slot, const uint8_t *buf, size_t len)
 
 static const rh_keystore_backend_t pico_backend = { 0, pico_read, pico_erase, pico_write };
 
+// @req PICO-0004
 int rh_keystore_load(rh_key_t *out)
 {
     return rh_keystore_core_load(&pico_backend, out);
 }
 
+// @req PICO-0004
 int rh_keystore_store(const rh_key_t *key)
 {
     return rh_keystore_core_store(&pico_backend, key);

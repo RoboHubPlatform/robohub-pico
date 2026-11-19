@@ -1,0 +1,17 @@
+# The tests this platform has, declared rather than discovered (see
+# robohub-stm32/tests/tests.yml for the vocabulary: `kind` says who runs a suite,
+# `tags` what class of test it is).
+
+name: robohub-pico
+
+suites:
+
+  # The board specs' pin assignments: no GPIO claimed by two functions, none on
+  # the CYW43's lines, each peripheral pin one the RP2350 can route that function
+  # to, the user LED declared on the CYW43, and target.json, module.yml and the
+  # board support package giving the same numbers.
+  # @verifies PICO-BOARD-0003
+  - name: board-pins
+    kind: command
+    tags: [unit, host]
+    command: [python3, tests/board_pins_test.py]

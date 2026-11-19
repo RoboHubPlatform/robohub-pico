@@ -91,9 +91,14 @@ board:
   flash:
     tool: elf2uf2
     command: "elf2uf2 {binary} --family-id 0xe48bff59"
+  # The same pins as target.json, which is what a build reads; one GPIO per
+  # function, none of them one the CYW43 uses (GP23, GP24, GP25, GP29 —
+  # boards/pico2_w.h in the SDK). tests/board_pins_test.py checks both files,
+  # the board support package and the part's function map agree.
   pins:
     user_led:
-      gpio: 15
+      # On the CYW43439, not an RP2350 GPIO: CYW43_WL_GPIO_LED_PIN.
+      cyw43_gpio: 0
       active_high: true
     uart0_tx:
       gpio: 0
@@ -103,16 +108,34 @@ board:
       gpio: 4
     uart1_rx:
       gpio: 5
+    i2c0_sda:
+      gpio: 8
+    i2c0_scl:
+      gpio: 9
+    i2c1_sda:
+      gpio: 6
+    i2c1_scl:
+      gpio: 7
+    spi0_tx:
+      gpio: 19
+    spi0_rx:
+      gpio: 20
+    spi0_sck:
+      gpio: 18
+    spi0_csn:
+      gpio: 17
     onewire0_dq:
       gpio: 28
+    dht0_data:
+      gpio: 22
     adc0_ch0:
       gpio: 26
     pwm0_ch0:
       gpio: 21
     pwm0_ch1:
-      gpio: 23
+      gpio: 10
     pwm0_ch2:
-      gpio: 24
+      gpio: 11
   peripherals:
     - name: uart0
       kind: uart
@@ -128,10 +151,6 @@ board:
       kind: adc
     - name: onewire0
       kind: onewire
-    - name: pwm0
-      kind: pwm
-    - name: pwm0
-      kind: pwm
     - name: pwm0
       kind: pwm
 metadata:

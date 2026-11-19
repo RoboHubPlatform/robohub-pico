@@ -27,7 +27,7 @@ endif()
 #
 # Building burns nothing. Loading that OTP file into the chip is the
 # irreversible step, and only `rho flash --production` does it, after printing
-# it and having the board's name typed (production/rp2350.json, docs/index.md).
+# it and having the board's name typed (production/rp2350.json, docs/doc/index.md).
 #
 # The resolved configuration is `<build>/config-check/.config`, two levels above
 # the generated project; a value passed with -DRHO_CONFIG_RH_PRODUCTION wins.

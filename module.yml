@@ -14,7 +14,7 @@ module:
   previous_ids:
     - robohub-pico
   type: platform
-  version: 0.3.2
+  version: 0.3.3
   description: >
     RoboHub platform for Raspberry Pi Pico (RP2040) and Pico 2/2W (RP2350).
     Implements the robohub-common HAL contracts using the Pico SDK.
@@ -24,6 +24,10 @@ module:
   created: "2026-10-06"
 
 platform: robohub
+
+# The platform's requirements are numbered PICO-NNNN (and PICO-<AREA>-NNNN for its
+# subsystems) and serve the system requirements robohub holds.
+requirements: { prefix: PICO, parent: robohub }
 
 
 # What flashing a board needs from the machine: permission to open the bootrom's
@@ -153,6 +157,6 @@ docs:
   title: RoboHub Pico Platform
   section: platforms
   order: "50"
-  index: docs/index.md
+  index: docs/doc/index.md
   sources:
-    - docs/index.md
+    - docs/doc/index.md

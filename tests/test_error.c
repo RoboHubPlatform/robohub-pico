@@ -8,6 +8,7 @@
 #include "error.h"
 #include <stdio.h>
 
+// @verifies PICO-HAL-0005
 int main(void)
 {
     const char* msg = robohub_error_to_string(ROBOHUB_OK);

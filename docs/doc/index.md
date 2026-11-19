@@ -65,6 +65,32 @@ offer (`gateway`, `relay`, `node`, `edge`, `wireless`, `links` and `buses`) and
 the `deployment` block names how a gateway is built and reached. Adding a board
 does not require a keeper rebuild.
 
+## Pins
+
+The Pico 2W's defaults, from `boards/pico2w/target.json` (the module.yml and
+the board support package say the same):
+
+| Function | GPIO |
+|---|---|
+| `uart0` (console) | TX GP0, RX GP1 |
+| `uart1` | TX GP4, RX GP5 |
+| `i2c0` | SDA GP8, SCL GP9 |
+| `i2c1` | SDA GP6, SCL GP7 |
+| `spi0` | TX GP19, RX GP20, SCK GP18, CSn GP17 |
+| `onewire0` | GP28 |
+| `dht0` | GP22 |
+| `adc0` | GP26 |
+| `pwm0` | GP21, GP10, GP11 |
+| user LED | on the CYW43, WL_GPIO 0 — not an RP2350 GPIO |
+
+No GPIO carries two functions, so every bus can be used at once, and none is
+GP23, GP24, GP25 or GP29, which the board wires to the CYW43 (the SDK's
+`boards/pico2_w.h`). `tests/board_pins_test.py` checks that, that each pin is
+one the RP2350 can route that function to (the SDK's `io_bank0.h`), and that
+the three files agree. The `user_led` GPIO instance is a plain RP2350 GPIO: it
+does not light the LED, which needs the CYW43 driver (`cyw43_arch_gpio_put`),
+linked only with `RH_NET`.
+
 ## The device keystore
 
 The rotated device key (`robohub/keystore.h`) lives in the last two 4 KiB

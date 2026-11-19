@@ -1,0 +1,89 @@
+# The HAL implementations and what the Pico 2W's board support registers
+# (src/hal/, src/platform/pico_console.c, pico_tick.c, boards/pico2w/bsp/,
+# CMakeLists.txt). Proposed until the maintainer approves them.
+level: SUB
+prefix: PICO-HAL
+title: Pico HAL
+requirements:
+  - id: PICO-HAL-0001
+    title: A HAL is compiled only when the project selects it
+    statement: >
+      Each HAL source — GPIO, I2C, SPI, UART, timer, RS485, 1-Wire, DHT, ADC,
+      PWM — shall be compiled into robohub-pico only when its RH_HAL_<NAME>
+      configuration symbol is set, and the SDK's hardware_adc and hardware_pwm
+      libraries shall be linked only with RH_HAL_ADC and RH_HAL_PWM.
+    rationale: A program pays in flash only for the peripherals it uses.
+    satisfies: [PICO-0001]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [hal, config]
+
+  - id: PICO-HAL-0002
+    title: The board registers its devices by name
+    statement: >
+      The pico2w board support shall register `user_led` and `gpio0` (GPIO) and
+      `system_timer` always, and `onewire0` on GP28, `dht0`, `adc0` on GP26 and
+      `pwm0` on GP21, GP10 and GP11 when the matching HAL is selected, each with
+      the platform's implementation of every operation.
+    rationale: A driver looks a bus up by name; an instance whose operations are null builds and then faults on first use.
+    satisfies: [PICO-0001, PICO-0002]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [hal, board]
+
+  - id: PICO-HAL-0003
+    title: 1-Wire slots are timed with interrupts off
+    statement: >
+      The software 1-Wire bus shall run each write slot, each read slot up to its
+      sample, and the presence sample after a 480 µs reset with interrupts
+      disabled, at the standard-speed timings a DS18B20 is specified against.
+    rationale: A USB or Wi-Fi interrupt inside a slot stretched it, which read as a failed CRC or a missing presence pulse.
+    satisfies: [PICO-0001]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [hal, onewire]
+
+  - id: PICO-HAL-0004
+    title: The console can be the board's USB port, pumped under FreeRTOS
+    statement: >
+      With RH_CONSOLE_USB the console shall be the SDK's USB CDC stdio, and under
+      FreeRTOS the board shall start a `usb_cdc` task at tskIDLE_PRIORITY + 2
+      that services the USB stack every 2 ms before the scheduler starts.
+    rationale: Under a kernel the SDK's background pump does not run; a console write waiting on a stack its writer outranks never completes.
+    satisfies: [PICO-0001, PICO-0008]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [console, usb, freertos]
+
+  - id: PICO-HAL-0005
+    title: Host builds need no SDK
+    statement: >
+      Configured without the Pico SDK, robohub-pico shall still configure and
+      build for the host, leaving out the sources that need the SDK, so its host
+      tests run on a machine with no cross toolchain.
+    rationale: The contracts' host tests run in CI, where no SDK is fetched.
+    satisfies: [PICO-0001]
+    status: proposed
+    verification: test
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [host, tests]
+
+  - id: PICO-HAL-0006
+    title: A FreeRTOS panic line reaches the console before the board halts
+    statement: Under FreeRTOS the pico2w board shall define robohub_freertos_console_drain so that, after a kernel panic line, the USB CDC console is pumped until its transmit FIFO is empty (at most 250 ms, then 10 ms more) and a UART console waits until its FIFO has shifted out, before robohub-freertos disables interrupts and halts.
+    rationale: The pump task cannot run once the scheduler has failed, and robohub-freertos' default drain only waits; a halted board must have said why.
+    satisfies: [PICO-0001, PICO-0008]
+    status: proposed
+    verification: demonstration
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [console, usb, freertos]

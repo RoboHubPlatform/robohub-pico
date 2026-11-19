@@ -1,0 +1,51 @@
+# The network contract over the CYW43 radio and LwIP (src/platform/pico_net.c,
+# config/lwipopts.h, CMakeLists.txt). Proposed until the maintainer approves
+# them.
+level: SUB
+prefix: PICO-NET
+title: Pico network
+requirements:
+  - id: PICO-NET-0001
+    title: Sockets are LwIP control blocks polled without blocking
+    statement: >
+      The network contract shall run LwIP's RAW API under the SDK's
+      threadsafe-background arch (NO_SYS=1), with at most RH_NET_MAX_SOCKETS (4)
+      sockets each buffering RH_NET_RX_CAPACITY (3072) bytes, and a receive
+      shall return what is buffered, or ROBOHUB_SOCKET_TIMEOUT once its timeout
+      passes, re-checking every millisecond.
+    rationale: Bare metal has no OS for BSD sockets to block in; the contract's receive is a poll.
+    satisfies: [PICO-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [network, lwip]
+
+  - id: PICO-NET-0002
+    title: A board without the radio is refused at configure time
+    statement: >
+      Configuring a project with RH_NET for a board whose SDK board has no
+      CYW43 arch shall fail with a message naming the board, not later at link
+      time.
+    rationale: An undefined link target says nothing about the cause.
+    satisfies: [PICO-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [network, config]
+
+  - id: PICO-NET-0003
+    title: Joining a network has a bounded wait
+    statement: >
+      robohub_net_wifi_connect shall bring the radio up once, join the SSID with
+      WPA2-AES within the configured timeout (15000 ms when none is given), and
+      return ROBOHUB_ERR_INVALID_ARG without an SSID and ROBOHUB_ERR_IO when the
+      join fails.
+    rationale: A board that cannot join must say so and retry rather than hang at boot.
+    satisfies: [PICO-0009]
+    status: proposed
+    verification: inspection
+    owner: maintainer
+    changed: 2026-11-19
+    tags: [network, wifi]

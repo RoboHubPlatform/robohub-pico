@@ -14,19 +14,24 @@ digital — an **ADC** and a **PWM**.
 
 | Contract | On the Pico |
 |---|---|
-| GPIO | the SDK's pins, as `gpio0` and the LED as `user_led` |
-| I2C | `i2c0` on GP16/GP17, `i2c1` on GP18/GP19 |
-| SPI | `spi0` on GP19/GP20/GP18/GP17 |
+| GPIO | the SDK's pins, as `gpio0`; `user_led` is a plain GPIO instance and lights nothing — the Pico 2W's LED is on the CYW43 (WL_GPIO 0), which only the CYW43 driver reaches |
+| I2C | `i2c0` on GP8/GP9, `i2c1` on GP6/GP7 |
+| SPI | `spi0` on GP19 (TX), GP20 (RX), GP18 (SCK), GP17 (CSn) |
 | UART | `uart0` on the console pins, `uart1` on GP4/GP5 |
 | timer | `system_timer`, the SDK's timer |
 | RS485 | a UART with a transceiver's direction pin |
 | OneWire | `onewire0` on GP28 |
 | DHT | `dht0` on GP22 |
 | ADC | `adc0`, the converter's input on GP26 (the part has four) |
-| PWM | `pwm0` on GP21, GP23, GP24 — three channels, enough for an RGB LED |
+| PWM | `pwm0` on GP21, GP10, GP11 — three channels, enough for an RGB LED |
 
 An interface is compiled in and registered only when a program selects its HAL, so
 a program that reads no analog part pays for none of it.
+
+No GPIO carries two of these defaults, so every bus can be used at once, and
+none is GP23, GP24, GP25 or GP29, which a Pico 2W wires to its CYW43.
+`tests/board_pins_test.py` (`rho test .`) checks that, and that target.json,
+module.yml and the board support package agree.
 
 ### The ADC
 

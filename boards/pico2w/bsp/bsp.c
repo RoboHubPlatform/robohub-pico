@@ -81,6 +81,7 @@ static void usb_cdc_service(void* argument)
     }
 }
 
+// @req PICO-HAL-0004
 static void usb_cdc_service_start(void)
 {
     /* Above the ordinary task priorities. A console write waits for the USB
@@ -88,6 +89,37 @@ static void usb_cdc_service_start(void)
      * is a pump that never runs while the writer waits for it. */
     (void)xTaskCreate(usb_cdc_service, "usb_cdc", 512, 0,
                       tskIDLE_PRIORITY + 2, 0);
+}
+
+/* What robohub-freertos calls after a panic line, before it disables interrupts
+ * and halts (RTOS-0006). Its default only waits; this one flushes. The pump task
+ * above cannot run any more — the scheduler is what failed — so the USB stack is
+ * pumped here until the CDC FIFO is empty, bounded so an unplugged or stalled
+ * host cannot keep the board from halting. A UART console is waited out on its
+ * FIFO, which needs no interrupt. */
+// @req PICO-HAL-0006
+void robohub_freertos_console_drain(void)
+{
+#ifdef RH_PICO_SDK
+    (void)fflush(stdout);
+#if defined(CONFIG_RH_CONSOLE_USB) && CONFIG_RH_CONSOLE_USB
+    absolute_time_t until = make_timeout_time_ms(250);
+    while (tud_cdc_connected() &&
+           tud_cdc_write_available() < CFG_TUD_CDC_TX_BUFSIZE &&
+           !time_reached(until)) {
+        tud_task();
+        (void)tud_cdc_write_flush();
+    }
+    /* The FIFO is empty once the last packet is handed to the controller; give
+     * the host the few milliseconds it takes to collect it. */
+    absolute_time_t settle = make_timeout_time_ms(10);
+    while (!time_reached(settle)) {
+        tud_task();
+    }
+#else
+    uart_tx_wait_blocking(uart_get_instance(RH_UART0_INDEX));
+#endif
+#endif
 }
 #endif
 
@@ -151,8 +183,10 @@ static RoboHubPicoADC adc0;
 
 #if defined(CONFIG_RH_HAL_PWM) && CONFIG_RH_HAL_PWM
 /* The pins the PWM channels drive, in channel order. Three are enough for an
- * RGB LED; the part has more, and a board that needs them names them. */
-static const rh_u32 pwm0_pins[] = { 21u, 23u, 24u };
+ * RGB LED; the part has more, and a board that needs them names them. Not GP23
+ * or GP24: on a Pico 2W those are the CYW43's WL_REG_ON and data lines
+ * (boards/pico2_w.h), and taking them for PWM cuts the wireless chip off. */
+static const rh_u32 pwm0_pins[] = { 21u, 10u, 11u };
 static RoboHubPicoPWM pwm0;
 #endif
 
@@ -186,6 +220,7 @@ void bsp_init(void)
 #endif
 }
 
+// @req PICO-HAL-0002
 void bsp_register_hals(void)
 {
     robohub_register_gpio("user_led", &led_gpio);

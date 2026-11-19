@@ -13,6 +13,7 @@
 
 #include "pico/rand.h"
 
+// @req PICO-0005
 int robohub_platform_nonce(rh_u8* out, rh_size length)
 {
     rh_size done = 0;

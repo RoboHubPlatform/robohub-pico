@@ -81,6 +81,7 @@ static inline void ow_delay(rh_u32 us)
  * Wi-Fi interrupt that lands inside one stretches a one into a zero, or makes a
  * read sample the line after the part let go — a failed CRC, or a reset that
  * never sees the presence pulse. */
+// @req PICO-HAL-0003
 static void ow_write_bit(RoboHubPicoOneWire* bus, rh_u32 bit)
 {
     uint32_t saved = save_and_disable_interrupts();
@@ -98,6 +99,7 @@ static void ow_write_bit(RoboHubPicoOneWire* bus, rh_u32 bit)
     restore_interrupts(saved);
 }
 
+// @req PICO-HAL-0003
 static rh_u32 ow_read_bit(RoboHubPicoOneWire* bus)
 {
     uint32_t saved = save_and_disable_interrupts();
@@ -169,6 +171,7 @@ RoboHubError pico_onewire_deinit(RoboHubOneWire* self)
 #endif
 }
 
+// @req PICO-HAL-0003
 RoboHubError pico_onewire_reset(RoboHubOneWire* self, rh_bool* present)
 {
     if (present == NULL) {

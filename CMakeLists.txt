@@ -118,6 +118,7 @@ set(ROBOHUB_PICO_SOURCES
     src/platform/pico_tick.c
     src/platform/pico_nonce.c
     src/platform/pico_keystore.c
+    src/platform/pico_health.c
 )
 
 if(RHO_ROBO_CONFIG AND EXISTS "${RHO_ROBO_CONFIG}")
@@ -218,6 +219,9 @@ target_link_libraries(robohub-pico PUBLIC robohub-common)
 # undefined pulls that object in, and its rh_keystore_load/store override the
 # weak defaults in robohub-common even if those were seen first.
 target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_keystore_platform")
+# The same for the health contracts (pico_health.c): the watchdog, the reset
+# reason, retained memory and the HardFault handler that writes the record.
+target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_health_platform")
 
 if(ROBOHUB_PICO_SDK_AVAILABLE)
   # `RH_PICO_SDK` is the name the sources branch on. A different name here
@@ -255,7 +259,7 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   # `pico_stdlib` is the SDK's own view of a program: the startup code, the
   # linker script and the runtime, carried as flags and sources on a target.
   # Linking it is what makes this an SDK build rather than one beside it.
-  target_link_libraries(robohub-pico INTERFACE pico_stdlib pico_rand)
+  target_link_libraries(robohub-pico INTERFACE pico_stdlib pico_rand hardware_watchdog)
 
   # The device keystore: the last two 4 KiB sectors of flash, erased and
   # programmed through the SDK (hardware_flash) with interrupts off and the other

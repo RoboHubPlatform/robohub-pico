@@ -44,3 +44,7 @@ Pico 2W pin defaults no longer collide. I2C1 sat on SPI0's SCK and TX (GP18/19) 
 ## [0.3.4] - 2026-11-20
 
 The FreeRTOS example names robohub-freertos at its new path in the robohub-node collection (`kernels/freertos/`; robohub ADR-0020); CI checks out robohub-node instead of robohub-freertos.
+
+## [0.4.0] - 2026-11-20
+
+The health contracts on the RP2350 (PICO-0010, robohub-common 1.3.0): the hardware watchdog (up to 16 777 ms, stoppable, no early warning), the reset reason from the SDK's watchdog-reboot distinction and POWMAN's CHIP_RESET flags (power-on, brown-out, RUN pin), 32 bytes of uninitialised RAM for the fault record and boot count, and a HardFault handler that records the faulting PC and reboots — so the next boot reports a fault. `hardware_watchdog` is linked; `rh_health_platform` is named on the link so the strong functions always win over robohub-common's weak ones.

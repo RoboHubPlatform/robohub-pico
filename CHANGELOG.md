@@ -52,3 +52,13 @@ The health contracts on the RP2350 (PICO-0010, robohub-common 1.3.0): the hardwa
 ## [0.4.1] - 2026-11-20
 
 `examples/c/health_check`, the health contracts checked on the board (PICO-0010): one boot in which a task hangs and the core's watchdog (`CONFIG_RH_CORE_WATCHDOG_MS=3000`) resets the board, one in which a task faults and the HardFault handler records it, and one that reports the record and runs with the watchdog fed. On a Pico 2 W it ended at boot 3 with reason `fault`, a hard fault in task 1 at the faulting store — both resets kept the retained record.
+
+## [0.5.0] - 2026-11-20
+
+Updates over the link on the Pico 2 W (PICO-0011, PICO-0012, robohub ADR-0023).
+
+- **The update slot** (`src/platform/pico_update.c`): an image is written to the A/B partition not booted, a page at a time; booted once by a flash update boot to that partition's start; on trial while the boot ROM says buy-pending; confirmed with `explicit_buy()`; given up with a normal reboot, which boots the untried image. The update's id and versions, its outcome (kept or rolled back) and the board's security version live in the update state sector before the keystore, so the old image reports a rollback after any reset. The partitions' places are read from the boot ROM's table; a board without one is not updatable.
+- **The flash layout** (`partitions/ab.json`): the table, partitions A and B of 2036 KiB each, a spare sector, the update state sector, the keystore. `tools/flash_ab.sh` writes the table and the program into partition A; the board manifest names it as `board.flash.ab_command` for Mesh. An image must fit a partition (`cmake/pico_partition_reserve.ld`).
+- **Two kinds of image**: `CONFIG_RH_UPDATE_IMAGE` builds the program flagged try-before-you-buy (`PICO_CRT0_IMAGE_TYPE_TBYB`); every build also writes the raw `.bin` a partition takes.
+- **A Wi-Fi join keeps the watchdog fed** while it waits, bounded by its timeout: a join takes longer than the core's watchdog period or the boot ROM's 16.7 s trial window.
+- `examples/c/update_check`: the on-target test — version 1 flashed with the table, version 2 confirmed from partition B, version 3 hanging on trial and rolled back.

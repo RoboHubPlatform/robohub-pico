@@ -63,3 +63,13 @@ if(RHO_CONFIG_RH_PRODUCTION)
         "that enable it are written to ${ROBOHUB_PICO_OTP_FILE}. Loading them burns OTP "
         "irreversibly; flash with `rho flash --production`, which lists every step first.")
 endif()
+
+# The program as a raw image for a partition, beside the ELF: what an update
+# over the link carries (PICO-0012). Linked at 0x10000000, it runs from either
+# partition, which the boot ROM maps there.
+find_program(ROBOHUB_PICO_OBJCOPY NAMES arm-none-eabi-objcopy)
+if(ROBOHUB_PICO_OBJCOPY)
+    add_custom_command(TARGET ${RHO_PROGRAM} POST_BUILD
+        COMMAND ${ROBOHUB_PICO_OBJCOPY} -O binary $<TARGET_FILE:${RHO_PROGRAM}> $<TARGET_FILE_DIR:${RHO_PROGRAM}>/$<TARGET_FILE_BASE_NAME:${RHO_PROGRAM}>.bin
+        COMMENT "[robohub-pico] the program as a partition image (.bin)")
+endif()

@@ -34,6 +34,7 @@
 
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
+#include "hardware/watchdog.h"
 
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -303,6 +304,7 @@ RoboHubError robohub_net_wifi_connect(const RoboHubWiFiConfig* config)
     }
     /* `cyw43_arch_init` brings the chip up once; a later connect only joins. */
     if (!net_initialized) {
+        watchdog_update();
         if (cyw43_arch_init() != 0) {
             return ROBOHUB_ERR_IO;
         }
@@ -312,9 +314,26 @@ RoboHubError robohub_net_wifi_connect(const RoboHubWiFiConfig* config)
 
     const char* password = (config->password != 0) ? config->password : "";
     rh_u32 timeout = (config->timeout_ms != 0u) ? config->timeout_ms : 15000u;
-    if (cyw43_arch_wifi_connect_timeout_ms(config->ssid, password,
-                                           CYW43_AUTH_WPA2_AES_PSK, timeout) != 0) {
+    /* Joined by polling rather than one blocking call, and the watchdog fed
+     * while it waits, bounded by the timeout: a join takes seconds, longer than
+     * the core's watchdog period or the boot ROM's trial window allow a board
+     * that has stopped (PICO-0011, robohub ADR-0023). */
+    if (cyw43_arch_wifi_connect_async(config->ssid, password, CYW43_AUTH_WPA2_AES_PSK) != 0) {
         return ROBOHUB_ERR_IO;
+    }
+    absolute_time_t until = make_timeout_time_ms(timeout);
+    for (;;) {
+        watchdog_update();
+        int status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+        if (status == CYW43_LINK_UP) {
+            break;
+        }
+        if (status == CYW43_LINK_FAIL || status == CYW43_LINK_NONET || status == CYW43_LINK_BADAUTH ||
+            absolute_time_diff_us(get_absolute_time(), until) <= 0) {
+            return ROBOHUB_ERR_IO;
+        }
+        cyw43_arch_poll();
+        sleep_ms(50);
     }
     net_up = RH_TRUE;
     return ROBOHUB_OK;

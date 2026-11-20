@@ -1,0 +1,102 @@
+#
+# update_check — updates over the link on the board itself (PICO-0011).
+#
+# An on-target test, driven by update_check.py over the Pico 2 W's USB serial
+# port, which carries the link's frames and nothing else. The program is the
+# real core, link and managed layer over the platform's A/B update slot; the
+# script is its gateway. It builds three images of this program — version 1 to
+# flash, version 2 to keep, and version 3 that hangs on trial — flashes version 1
+# with the A/B partition table, updates it to version 2 and expects it confirmed,
+# then to version 3 and expects it rolled back with version 2 running again.
+#
+# The update key is a test key, its seed bytes 0..31 (update_key.h): this program
+# is for the test, never for a board in a mesh.
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: update-check
+  id: robohub.example.update-check-pico-c
+  type: module
+  version: 0.1.0
+  description: >
+    Updates over the link on a Pico 2 W: one confirmed, one rolled back, driven
+    by a script over the board's USB serial port.
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-20"
+
+main: src/main.c
+
+build:
+  language: c
+  sources:
+    - src/main.c
+  output_dir: output
+  presets:
+    - pico2w
+
+depends:
+  - name: robohub-pico
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-pico
+    git: https://github.com/RoboHubPlatform/robohub-pico
+    branch: main
+  - name: robohub-core
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-node/core
+  - name: robohub-transport
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-node/link
+  - name: robohub-managed
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-node/managed
+
+c_connection:
+  library: "robohub-pico"
+  headers:
+    - platform.h
+    - console.h
+    - timer.h
+    - error.h
+    - types.h
+    - registry.h
+  include_dirs:
+    - ${ROBOHUB_WORKSPACE}/robohub-common/include
+    - ${ROBOHUB_WORKSPACE}/robohub-common/include/robohub/hal
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include/robohub/hal
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include/robohub/platform
+    - ${ROBOHUB_WORKSPACE}/robohub-node/core/include
+    - ${ROBOHUB_WORKSPACE}/robohub-node/core/include/robohub/core
+    - ${ROBOHUB_WORKSPACE}/robohub-node/link/include
+    - ${ROBOHUB_WORKSPACE}/robohub-node/managed/include
+  variants:
+    pico2w:
+      libraries:
+        - robohub-core
+        - robohub-transport
+        - robohub-managed
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+  values_file: project.conf
+
+package:
+  kind: library
+  binary: false
+
+metadata:
+  tags:
+    - example
+    - pico
+    - rp2350
+    - updates
+    - on-target-test
+  stability: experimental
+  visibility: public

@@ -119,6 +119,7 @@ set(ROBOHUB_PICO_SOURCES
     src/platform/pico_nonce.c
     src/platform/pico_keystore.c
     src/platform/pico_health.c
+    src/platform/pico_update.c
 )
 
 if(RHO_ROBO_CONFIG AND EXISTS "${RHO_ROBO_CONFIG}")
@@ -222,6 +223,9 @@ target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_keystore_platf
 # The same for the health contracts (pico_health.c): the watchdog, the reset
 # reason, retained memory and the HardFault handler that writes the record.
 target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_health_platform")
+# The same for the update slot (pico_update.c): A/B partitions, flash update
+# boot and try-before-you-buy (PICO-0011).
+target_link_options(robohub-pico INTERFACE "LINKER:--undefined=rh_update_platform")
 
 if(ROBOHUB_PICO_SDK_AVAILABLE)
   # `RH_PICO_SDK` is the name the sources branch on. A different name here
@@ -279,6 +283,21 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   target_link_options(robohub-pico INTERFACE
     "LINKER:--defsym=RH_KEYSTORE_RESERVED_START=${ROBOHUB_KEYSTORE_RESERVED_START}"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pico_keystore_reserve.ld")
+
+  # An image fits one A/B partition (partitions/ab.json: 2036 KiB), since the
+  # board is flashed into partition A and updated into B (PICO-0012).
+  target_link_options(robohub-pico INTERFACE
+    "LINKER:--defsym=RH_PARTITION_END=0x101FD000"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/pico_partition_reserve.ld")
+
+  # An update image (CONFIG_RH_UPDATE_IMAGE): the program flagged
+  # try-before-you-buy, so the boot ROM gives it a trial after a flash update
+  # boot (robohub ADR-0023). crt0 is compiled into the program, so the flag is
+  # given to whatever links this library.
+  if(RHO_CONFIG_RH_UPDATE_IMAGE)
+    message(STATUS "[robohub-pico] an update image: flagged try-before-you-buy")
+    target_compile_definitions(robohub-pico INTERFACE PICO_CRT0_IMAGE_TYPE_TBYB=1)
+  endif()
 
   # The SDK's peripheral libraries, for the HALs that reach into a peripheral
   # the standard library does not carry. `pico_stdlib` is the startup and the

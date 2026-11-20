@@ -10,3 +10,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+
+# Python caches from the on-target test scripts.
+__pycache__/

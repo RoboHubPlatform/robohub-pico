@@ -91,6 +91,10 @@ board:
   flash:
     tool: elf2uf2
     command: "elf2uf2 {binary} --family-id 0xe48bff59"
+    # Flashed for updates over the link (PICO-0012, robohub ADR-0023): the A/B
+    # partition table, then the program into partition A. Mesh runs it for
+    # every Pico 2 W it flashes, and offers updates only to boards flashed so.
+    ab_command: "sh $ROBOHUB_WORKSPACE/robohub-pico/tools/flash_ab.sh {binary}"
   # The same pins as target.json, which is what a build reads; one GPIO per
   # function, none of them one the CYW43 uses (GP23, GP24, GP25, GP29 —
   # boards/pico2_w.h in the SDK). tests/board_pins_test.py checks both files,

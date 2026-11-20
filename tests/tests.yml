@@ -29,3 +29,16 @@ suites:
     tags: [on-target, pico2w]
     status: skip
     reason: needs a Pico 2 W on USB; flash examples/c/health_check and read its console for "health-check: passed"
+
+  # Updates over the link on the board (PICO-0011, PICO-0012):
+  # examples/c/update_check/update_check.py builds three images, flashes the first
+  # with the A/B partition table, updates to the second (confirmed from partition
+  # B) and to the third, which hangs on trial and is rolled back. It needs the
+  # board on USB, so it is declared skipped here.
+  # @verifies PICO-0011, PICO-0012
+  - name: update-on-target
+    kind: command
+    command: [python3, examples/c/update_check/update_check.py]
+    tags: [on-target, pico2w, updates]
+    status: skip
+    reason: needs a Pico 2 W on USB (kept attached across its reboots); prints "OK" when an update was kept and another rolled back

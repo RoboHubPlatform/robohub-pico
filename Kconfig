@@ -55,4 +55,13 @@ config RH_CONSOLE_USB
       cable that flashes the board, so output needs no adapter.
       A board whose USB is used for something else leaves this off.
 
+config RH_UPDATE_IMAGE
+    bool "Build an update image"
+    default n
+    help
+      Build the program as an update sent over the link: flagged
+      try-before-you-buy, so the boot ROM gives it a trial after a flash update
+      boot and it is kept only once it confirms (robohub ADR-0023). An image
+      flashed over USB is built without it.
+
 endmenu

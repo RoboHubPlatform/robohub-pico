@@ -48,3 +48,7 @@ The FreeRTOS example names robohub-freertos at its new path in the robohub-node 
 ## [0.4.0] - 2026-11-20
 
 The health contracts on the RP2350 (PICO-0010, robohub-common 1.3.0): the hardware watchdog (up to 16 777 ms, stoppable, no early warning), the reset reason from the SDK's watchdog-reboot distinction and POWMAN's CHIP_RESET flags (power-on, brown-out, RUN pin), 32 bytes of uninitialised RAM for the fault record and boot count, and a HardFault handler that records the faulting PC and reboots — so the next boot reports a fault. `hardware_watchdog` is linked; `rh_health_platform` is named on the link so the strong functions always win over robohub-common's weak ones.
+
+## [0.4.1] - 2026-11-20
+
+`examples/c/health_check`, the health contracts checked on the board (PICO-0010): one boot in which a task hangs and the core's watchdog (`CONFIG_RH_CORE_WATCHDOG_MS=3000`) resets the board, one in which a task faults and the HardFault handler records it, and one that reports the record and runs with the watchdog fed. On a Pico 2 W it ended at boot 3 with reason `fault`, a hard fault in task 1 at the faulting store — both resets kept the retained record.

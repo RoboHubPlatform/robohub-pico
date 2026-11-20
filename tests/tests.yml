@@ -15,3 +15,17 @@ suites:
     kind: command
     tags: [unit, host]
     command: [python3, tests/board_pins_test.py]
+
+  # The health contracts on the board (PICO-0010): examples/c/health_check walks
+  # through a watchdog reset, a recorded HardFault and a fed watchdog, one boot
+  # each, and says "health-check: passed" on its USB console. Run on a Pico 2 W
+  # on 2026-11-20: boot 3, reset reason fault, code 1 in task 1 at the faulting
+  # store, the watchdog fed about 100 times a second. It needs the board, so it
+  # is declared skipped here.
+  # @verifies PICO-0010
+  - name: health-on-target
+    kind: command
+    command: [sh, -c, "rho build -target pico2w examples/c/health_check && rho flash -target pico2w examples/c/health_check/build/output/health_check.elf"]
+    tags: [on-target, pico2w]
+    status: skip
+    reason: needs a Pico 2 W on USB; flash examples/c/health_check and read its console for "health-check: passed"

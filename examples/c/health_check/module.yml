@@ -1,0 +1,94 @@
+#
+# health_check — the health contracts on the board itself (PICO-0010).
+#
+# An on-target test, run on a Pico 2 W over its USB console. It walks through
+# three boots by itself, each one deciding from why the board restarted:
+#
+#   1. any other reason (power-on, a flash): a task hangs, and the watchdog the
+#      core started resets the board;
+#   2. after a watchdog reset: a task faults, and the HardFault handler records
+#      the task and the program counter and reboots;
+#   3. after a fault: the record is shown, and the board keeps running with its
+#      watchdog fed while every task keeps its time.
+#
+# Every line it writes starts with "health-check:" and the last says
+# "health-check: passed" or "health-check: FAILED ...".
+#
+# @project RoboHub Platform
+# @license MIT
+#
+
+module:
+  name: health-check
+  id: robohub.example.health-check-pico-c
+  type: module
+  version: 0.1.0
+  description: >
+    The health contracts on a Pico 2 W: a watchdog reset, a recorded fault and a
+    fed watchdog, one boot each, reported over the USB console.
+
+  maintainer: "Aurel Miron"
+  license: "MIT"
+  created: "2026-11-20"
+
+main: src/main.c
+
+build:
+  language: c
+  sources:
+    - src/main.c
+  output_dir: output
+  presets:
+    - pico2w
+
+depends:
+  - name: robohub-pico
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-pico
+    git: https://github.com/RoboHubPlatform/robohub-pico
+    branch: main
+  - name: robohub-core
+    type: c
+    path: ${ROBOHUB_WORKSPACE}/robohub-node/core
+
+c_connection:
+  library: "robohub-pico"
+  headers:
+    - platform.h
+    - console.h
+    - timer.h
+    - error.h
+    - types.h
+    - registry.h
+  include_dirs:
+    - ${ROBOHUB_WORKSPACE}/robohub-common/include
+    - ${ROBOHUB_WORKSPACE}/robohub-common/include/robohub/hal
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include/robohub/hal
+    - ${ROBOHUB_WORKSPACE}/robohub-pico/include/robohub/platform
+    - ${ROBOHUB_WORKSPACE}/robohub-node/core/include
+    - ${ROBOHUB_WORKSPACE}/robohub-node/core/include/robohub/core
+  variants:
+    pico2w:
+      libraries:
+        - robohub-core
+
+config:
+  dialect: linux
+  kconfig_fragments:
+    - Kconfig
+  values_file: project.conf
+
+package:
+  kind: library
+  binary: false
+
+metadata:
+  tags:
+    - example
+    - pico
+    - rp2350
+    - health
+    - on-target-test
+  stability: experimental
+  visibility: public

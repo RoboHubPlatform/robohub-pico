@@ -47,9 +47,7 @@ depends:
     branch: main
   - name: robohub-freertos
     type: c
-    path: ${ROBOHUB_WORKSPACE}/robohub-freertos
-    git: https://github.com/RoboHubPlatform/robohub-freertos
-    branch: main
+    path: ${ROBOHUB_WORKSPACE}/robohub-node/kernels/freertos
 
 c_connection:
   library: "robohub-pico"

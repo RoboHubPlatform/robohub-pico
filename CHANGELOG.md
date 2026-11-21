@@ -62,3 +62,10 @@ Updates over the link on the Pico 2 W (PICO-0011, PICO-0012, robohub ADR-0023).
 - **Two kinds of image**: `CONFIG_RH_UPDATE_IMAGE` builds the program flagged try-before-you-buy (`PICO_CRT0_IMAGE_TYPE_TBYB`); every build also writes the raw `.bin` a partition takes.
 - **A Wi-Fi join keeps the watchdog fed** while it waits, bounded by its timeout: a join takes longer than the core's watchdog period or the boot ROM's 16.7 s trial window.
 - `examples/c/update_check`: the on-target test — version 1 flashed with the table, version 2 confirmed from partition B, version 3 hanging on trial and rolled back.
+
+## [0.5.1] - 2026-11-21
+
+- `robohub_console_write_raw` writes a frame in one `stdio_put_string` and flushes it, rather than one `putchar_raw` per byte, which lost bytes on the USB link once several frames went out together (found in robohub-drivers 0.5.7). The node template's console link goes through it (robohub ADR-0025).
+- The update check also cuts a transfer halfway and resumes it from the chunk the board names, and offers a downgrade, which the board refuses (PICO-0013).
+- The health check also holds a key in the keystore's flash across each reset (PICO-0014). `health_check.py` builds it, flashes it and reads the console. The check's keys have their own scope and epoch 0, so no session uses them, but they replace a key the board was rotated to.
+- `tools/flash_ab.sh` waits up to 90 s, not 40, for the board to come back in BOOTSEL: under WSL, usbipd's attach loop has taken longer than that.

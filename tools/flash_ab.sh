@@ -20,7 +20,9 @@ wait_bootsel() {
     tries=0
     until picotool info >/dev/null 2>&1; do
         tries=$((tries + 1))
-        if [ "$tries" -gt 40 ]; then
+        # 90 s: under WSL a board that rebooted into BOOTSEL is attached again
+        # by usbipd's retry loop, which has taken longer than 40 s.
+        if [ "$tries" -gt 90 ]; then
             echo "flash: the board did not come back in BOOTSEL" >&2
             exit 1
         fi

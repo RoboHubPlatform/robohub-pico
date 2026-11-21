@@ -5,6 +5,12 @@
  * See module.yml: three boots, a watchdog reset, a recorded fault, a fed
  * watchdog. The watchdog is the core's (CONFIG_RH_CORE_WATCHDOG_MS=3000).
  *
+ * The keystore rides the same three boots (PICO-0014): the first stores key A,
+ * the second finds A after the watchdog reset and stores B, the third finds B
+ * after the fault reset. The check's keys have their own scope and epoch 0, so
+ * no session ever uses them; they do replace a key the board was rotated to,
+ * so flash the board from Mesh afterwards.
+ *
  * @project RoboHub Platform
  * @license MIT
  */
@@ -18,6 +24,7 @@
 #include "robohub/hal/console.h"
 #include "robohub/hal/timer.h"
 #include "robohub/health.h"
+#include "robohub/keystore.h"
 #include "robohub/core/core.h"
 #include "robohub/core/health.h"
 #include "robohub/core/scheduler.h"
@@ -54,6 +61,59 @@ static void put_hex(uint32_t value)
     out[10] = '\0';
     put(out);
 }
+
+/* The check's keys: scope "rhcheck", epoch 0 (never newer than a compiled key),
+ * and a body that says which step wrote it. B is written only when A came back
+ * after the reset, so finding B on the third boot means both held. */
+static const char check_scope[8] = {'r', 'h', 'c', 'h', 'e', 'c', 'k', 0};
+
+static rh_key_t check_key(uint8_t which)
+{
+    rh_key_t key;
+    key.epoch = 0u;
+    for (int i = 0; i < 8; i++) {
+        key.scope[i] = (uint8_t)check_scope[i];
+    }
+    for (int i = 0; i < 16; i++) {
+        key.key[i] = (uint8_t)(which ^ (uint8_t)(i * 17));
+    }
+    return key;
+}
+
+static bool same_key(const rh_key_t* a, const rh_key_t* b)
+{
+    if (a->epoch != b->epoch) {
+        return false;
+    }
+    for (int i = 0; i < 8; i++) {
+        if (a->scope[i] != b->scope[i]) {
+            return false;
+        }
+    }
+    for (int i = 0; i < 16; i++) {
+        if (a->key[i] != b->key[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Whether the stored key is `which`. */
+static bool keystore_holds(uint8_t which)
+{
+    rh_key_t want = check_key(which);
+    rh_key_t got;
+    return rh_keystore_load(&got) == 0 && same_key(&got, &want);
+}
+
+/* Store `which` and read it straight back. */
+static bool keystore_put(uint8_t which)
+{
+    rh_key_t key = check_key(which);
+    return rh_keystore_store(&key) == 0 && keystore_holds(which);
+}
+
+static bool keystore_ok;
 
 static robohub_core_health health;
 static robohub_core_task_id hang_task, fault_task, beat_task;
@@ -114,9 +174,13 @@ static RoboHubError beat(robohub_core_task_id id, void* user)
     put_u32(now.watchdog_feeds);
     put(" times\n");
     if (seconds >= 20u) {
-        put(now.watchdog_ms != 0u && now.watchdog_feeds > 100u
-                ? "health-check: passed\n"
-                : "health-check: FAILED — the watchdog was not running or not fed\n");
+        if (!keystore_ok) {
+            put("health-check: FAILED — the keystore did not hold its keys across the resets\n");
+        } else {
+            put(now.watchdog_ms != 0u && now.watchdog_feeds > 100u
+                    ? "health-check: passed\n"
+                    : "health-check: FAILED — the watchdog was not running or not fed\n");
+        }
     }
     return ROBOHUB_OK;
 }
@@ -163,10 +227,22 @@ int main(void)
         } else {
             put("health-check: step 3 — the fault was recorded; running with the watchdog fed\n");
         }
+        keystore_ok = keystore_holds(0xB0u);
+        put(keystore_ok ? "health-check: keystore — key B held across the fault reset\n"
+                        : "health-check: keystore — key B is not there after the fault reset\n");
         (void)robohub_core_task_add("beat", beat, 0, 2000u, &beat_task);
     } else if (health.reset_reason == RH_RESET_WATCHDOG) {
+        if (keystore_holds(0xA0u)) {
+            put("health-check: keystore — key A held across the watchdog reset\n");
+            put(keystore_put(0xB0u) ? "health-check: keystore — key B stored and read back\n"
+                                    : "health-check: keystore — key B could not be stored\n");
+        } else {
+            put("health-check: keystore — key A is not there after the watchdog reset\n");
+        }
         (void)robohub_core_task_add("fault", fault, 0, 100u, &fault_task);
     } else {
+        put(keystore_put(0xA0u) ? "health-check: keystore — key A stored and read back\n"
+                                : "health-check: keystore — key A could not be stored\n");
         (void)robohub_core_task_add("hang", hang, 0, 100u, &hang_task);
     }
     (void)robohub_core_run();

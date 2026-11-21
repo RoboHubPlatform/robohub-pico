@@ -198,3 +198,34 @@ requirements:
     owner: maintainer
     changed: 2026-11-20
     tags: [updates, build, rp2350]
+
+  - id: PICO-0013
+    title: The Pico 2 W's update check resumes a cut transfer and refuses a downgrade
+    statement: >
+      The on-target update check (`examples/c/update_check`) shall also cut a
+      transfer halfway, offer the same update again and continue from the chunk
+      the board names, and offer an image whose security version is below the
+      board's, which the board refuses as a downgrade.
+    rationale: Checked so far on the Linux host board only; the RP2350's slot and flash writes are what a cut transfer exercises (robohub ADR-0025, 6).
+    satisfies: [SYS-0072]
+    decided_by: [robohub:ADR-0025]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-21
+    tags: [updates, rp2350, on-target]
+
+  - id: PICO-0014
+    title: The Pico 2 W's health check holds a key across a reset
+    statement: >
+      The on-target health check (`examples/c/health_check`) shall also store a
+      key, reset, load the same key, store a second and load it (the keystore's
+      two flash sectors), before it prints `health-check: passed`.
+    rationale: The keystore per platform has no check against its contract (RNODE-0012; robohub ADR-0025, 5).
+    satisfies: [SYS-0070, SYS-0072]
+    decided_by: [robohub:ADR-0025]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-21
+    tags: [keystore, on-target]

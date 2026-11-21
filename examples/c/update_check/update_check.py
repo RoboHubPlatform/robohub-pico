@@ -11,7 +11,11 @@ e.g. `usbipd attach --wsl --busid <id> --auto-attach`):
 2. flashes version 1 with the A/B partition table (tools/flash_ab.sh);
 3. updates it over the USB link to version 2: verified, booted once, confirmed,
    and version 2 runs from partition B;
-4. updates it to version 3, which hangs on trial: the boot ROM's watchdog
+   The transfer is cut halfway: the check stops sending, offers the update
+   again, and continues from the chunk the board says it has (PICO-0013);
+4. offers an image whose security version is below the board's, which the board
+   refuses as a downgrade (PICO-0013);
+5. updates it to version 3, which hangs on trial: the boot ROM's watchdog
    reverts to version 2, which reports version 3 rolled back.
 
 The board's USB serial port carries the link's frames only. The update key is
@@ -37,6 +41,7 @@ KEY = Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
 UID = bytes([0x55, 0x50, 0x44, 0x41, 0x54, 0x45, 0x00, 0x01])
 OFFER, CHUNK, STATUS, HEALTH = 0x0501, 0x0502, 0x0503, 0x0403
 ACCEPTED, REFUSED, RECEIVING, VERIFIED, CONFIRMED, ROLLED_BACK, FAILED = range(1, 8)
+DOWNGRADE = 3
 CHUNK_SIZE = 192
 failures = []
 
@@ -188,8 +193,24 @@ def offer(update_id, image, firmware, security=1):
     return b"\x01" + manifest + KEY.sign(b"rh-update1" + manifest)
 
 
-def update(link, update_id, image, firmware):
-    """Offer, then every chunk with up to four in flight; True when verified."""
+def resume(link, update_id, image, firmware, cut_at):
+    """A transfer cut at `cut_at`: nothing is sent for three seconds, then the
+    update is offered again and the board names the chunk it continues from."""
+    end = time.time() + 3.0
+    while time.time() < end:
+        link.frames()
+        time.sleep(0.05)
+    link.send(OFFER, offer(update_id, image, firmware))
+    s = link.wait(lambda s: s[0] == "status" and s[1] == update_id and s[2] == ACCEPTED, 10)
+    nxt = s[4] if s is not None else -1
+    check(s is not None and cut_at - 4 <= nxt <= cut_at,
+          f"after a cut at chunk {cut_at} the board takes the offer again and resumes at {nxt}")
+    return nxt
+
+
+def update(link, update_id, image, firmware, cut_at=None):
+    """Offer, then every chunk with up to four in flight; True when verified.
+    With `cut_at`, the transfer stops there once and is resumed (PICO-0013)."""
     link.send(OFFER, offer(update_id, image, firmware))
     s = link.wait(lambda s: s[0] == "status" and s[1] == update_id, 10)
     check(s is not None and s[2] == ACCEPTED, f"update {update_id} is accepted ({s})")
@@ -220,6 +241,14 @@ def update(link, update_id, image, firmware):
                     if nxt < sent:
                         sent = nxt
                     last = time.time()
+        if cut_at is not None and sent == cut_at:
+            nxt = resume(link, update_id, image, firmware, cut_at)
+            cut_at = None
+            if nxt < 0:
+                return False
+            acked = sent = nxt
+            last = progress = time.time()
+            continue
         if sent < chunks and sent < acked + 4:
             link.send(CHUNK, struct.pack("<II", update_id, sent) + image[sent * CHUNK_SIZE:(sent + 1) * CHUNK_SIZE])
             sent += 1
@@ -263,8 +292,8 @@ def main():
     up = link.wait(lambda s: s[0] == "health", 40)
     check(up == ("health", 1), f"version 1 runs and reports its health ({up})")
 
-    # Version 2: kept.
-    if update(link, 200, image2, 2):
+    # Version 2: cut halfway and resumed, then kept.
+    if update(link, 200, image2, 2, cut_at=(len(image2) // CHUNK_SIZE) // 2):
         check(True, "update 200 (version 2) is verified; the board boots it once")
         link.close()
         s = outcome(link, 200, image2, 2, 90)
@@ -272,6 +301,12 @@ def main():
               f"version 2 confirms itself from partition B ({s})")
     else:
         check(False, "update 200 (version 2) is verified")
+
+    # A downgrade: security version 0 on a board that kept version 1's.
+    link.send(OFFER, offer(202, image3, 3, security=0))
+    s = link.wait(lambda s: s[0] == "status" and s[1] == 202, 10)
+    check(s is not None and s[2] == REFUSED and s[3] == DOWNGRADE,
+          f"an image below the board's security version is refused as a downgrade ({s})")
 
     # Version 3: hangs on trial, rolled back.
     if update(link, 201, image3, 3):
@@ -288,7 +323,8 @@ def main():
     if failures:
         print("FAILED:", *failures, sep="\n  ")
         return 1
-    print("OK: a Pico 2 W updated over its link — kept one image, rolled back another")
+    print("OK: a Pico 2 W updated over its link — resumed a cut transfer, kept one image, "
+          "refused a downgrade, rolled back another")
     return 0
 
 

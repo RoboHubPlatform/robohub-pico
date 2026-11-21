@@ -76,12 +76,13 @@ RoboHubConsoleError robohub_console_write_raw(const uint8_t* data, size_t len)
         return ROBOHUB_CONSOLE_ERR_STATE;
     }
 #ifdef RH_PICO_SDK
-    /* `putchar_raw`, not `fwrite`: stdio would buffer a frame and could rewrite
-     * its ends, and a frame that arrives changed is a frame that fails its
-     * check. */
-    for (size_t i = 0; i < len; i++) {
-        (void)putchar_raw((int)data[i]);
-    }
+    /* One raw write per frame, not `fwrite` (stdio would buffer a frame and
+     * could rewrite its ends) and not `putchar_raw` per byte: written a byte at a
+     * time, frames lost bytes on the USB link once several went out together — an
+     * update's statuses beside a health report (found in robohub-drivers 0.5.7,
+     * moved here with the node template, robohub ADR-0025). */
+    (void)stdio_put_string((const char*)data, (int)len, false, false);
+    stdio_flush();
 #else
     (void)fwrite(data, 1, len, stdout);
 #endif

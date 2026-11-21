@@ -229,3 +229,21 @@ requirements:
     owner: maintainer
     changed: 2026-11-21
     tags: [keystore, on-target]
+
+  - id: PICO-0015
+    title: The Pico 2 W registers its I2C buses, on its pins, with a timeout on every transfer
+    statement: >
+      When the I2C HAL is chosen (`CONFIG_RH_HAL_I2C`), the board shall register
+      "i2c0" on GP8 (SDA) and GP9 (SCL) and "i2c1" on GP6 and GP7, mux and pull
+      up those pins when a driver brings its bus up, link the SDK's
+      `hardware_i2c`, and bound every transfer by a timeout, returning
+      `ROBOHUB_ERR_TIMEOUT` when it runs out and `ROBOHUB_ERR_IO` on a missing
+      acknowledge.
+    rationale: No I2C bus was registered or muxed, so no I2C driver — the BMP180's, the SHT4x's — found one on the board; a bus held low must not stop the node's loop (robohub ADR-0026).
+    satisfies: [SYS-0072]
+    decided_by: [robohub:ADR-0026]
+    status: approved
+    verification: test
+    owner: maintainer
+    changed: 2026-11-21
+    tags: [i2c, hal]

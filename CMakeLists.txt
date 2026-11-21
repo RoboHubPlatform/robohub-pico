@@ -309,6 +309,9 @@ if(ROBOHUB_PICO_SDK_AVAILABLE)
   if(RHO_CONFIG_RH_HAL_PWM)
     target_link_libraries(robohub-pico INTERFACE hardware_pwm)
   endif()
+  if(RHO_CONFIG_RH_HAL_I2C)
+    target_link_libraries(robohub-pico INTERFACE hardware_i2c)
+  endif()
 endif()
 
 # ---------------------------------------------------------------------------

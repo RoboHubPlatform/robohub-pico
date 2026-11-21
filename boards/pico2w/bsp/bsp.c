@@ -44,6 +44,11 @@
 #include "pico_dht.h"
 #endif
 
+#if defined(CONFIG_RH_HAL_I2C) && CONFIG_RH_HAL_I2C
+#include "robohub/hal/i2c.h"
+#include "pico_i2c.h"
+#endif
+
 #if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC
 #include "robohub/hal/adc.h"
 #include "pico_adc.h"
@@ -173,6 +178,14 @@ static RoboHubPicoOneWire onewire0;
 static RoboHubPicoDHT dht0;
 #endif
 
+#if defined(CONFIG_RH_HAL_I2C) && CONFIG_RH_HAL_I2C
+/* The board's two I2C buses on the pins its spec gives (bsp.h): i2c0 on GP8 and
+ * GP9, where an I2C module such as the SHT4x is wired, and i2c1 on GP6 and GP7
+ * (PICO-0015). They were never registered, so no I2C driver found a bus. */
+static RoboHubPicoI2C i2c0_bus;
+static RoboHubPicoI2C i2c1_bus;
+#endif
+
 #if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC
 /* The converter's inputs, in channel order. The part has four; the board wires
  * one, and a program that wants more says so by giving the board its own
@@ -240,6 +253,15 @@ void bsp_register_hals(void)
      * the HAL, and the board is where the pin it is wired to is known. */
     pico_dht_create(&dht0, "dht0", RH_DHT0_PIN);
     robohub_register_dht("dht0", &dht0.interface);
+#endif
+
+#if defined(CONFIG_RH_HAL_I2C) && CONFIG_RH_HAL_I2C
+    /* The buses an I2C driver looks up by name; pins are muxed when a driver
+     * brings its bus up. */
+    pico_i2c_create(&i2c0_bus, "i2c0", 0u, RH_I2C0_SDA_PIN, RH_I2C0_SCL_PIN);
+    robohub_register_i2c("i2c0", &i2c0_bus.interface);
+    pico_i2c_create(&i2c1_bus, "i2c1", 1u, RH_I2C1_SDA_PIN, RH_I2C1_SCL_PIN);
+    robohub_register_i2c("i2c1", &i2c1_bus.interface);
 #endif
 
 #if defined(CONFIG_RH_HAL_ADC) && CONFIG_RH_HAL_ADC

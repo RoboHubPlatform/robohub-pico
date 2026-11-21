@@ -69,3 +69,7 @@ Updates over the link on the Pico 2 W (PICO-0011, PICO-0012, robohub ADR-0023).
 - The update check also cuts a transfer halfway and resumes it from the chunk the board names, and offers a downgrade, which the board refuses (PICO-0013).
 - The health check also holds a key in the keystore's flash across each reset (PICO-0014). `health_check.py` builds it, flashes it and reads the console. The check's keys have their own scope and epoch 0, so no session uses them, but they replace a key the board was rotated to.
 - `tools/flash_ab.sh` waits up to 90 s, not 40, for the board to come back in BOOTSEL: under WSL, usbipd's attach loop has taken longer than that.
+
+## [0.6.0] - 2026-11-21
+
+The I2C buses are registered (PICO-0015, robohub ADR-0026). With the I2C HAL chosen, the board registers "i2c0" on GP8/GP9 and "i2c1" on GP6/GP7. Their pins are muxed and pulled up when a driver brings a bus up, and `hardware_i2c` is linked. Every transfer is bounded by a timeout, so a bus held low is `ROBOHUB_ERR_TIMEOUT` rather than a stopped loop. No I2C bus was registered before, so no I2C driver (the BMP180's included) found one on the board.

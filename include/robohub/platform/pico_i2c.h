@@ -31,9 +31,9 @@ typedef struct RoboHubPicoI2C {
 /** Fill in a controller's interface; its pins are muxed when it is brought up. */
 void pico_i2c_create(RoboHubPicoI2C* bus, rh_name name, rh_u8 index, rh_u32 sda, rh_u32 scl);
 
-RoboHubError pico_i2c_init(RoboHubI2C* self, uint32_t speed_hz);
-RoboHubError pico_i2c_write(RoboHubI2C* self, uint8_t addr, const uint8_t* data, size_t len);
-RoboHubError pico_i2c_read(RoboHubI2C* self, uint8_t addr, uint8_t* data, size_t len);
+RoboHubError pico_i2c_init(RoboHubI2C* self, rh_u32 speed_hz);
+RoboHubError pico_i2c_write(RoboHubI2C* self, rh_u8 addr, const rh_u8* data, rh_size len);
+RoboHubError pico_i2c_read(RoboHubI2C* self, rh_u8 addr, rh_u8* data, rh_size len);
 
 #ifdef __cplusplus
 }

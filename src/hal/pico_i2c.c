@@ -42,7 +42,7 @@ static i2c_inst_t* pico_i2c_instance(RoboHubI2C* self)
 #endif
 
 // @req PICO-0015
-RoboHubError pico_i2c_init(RoboHubI2C* self, uint32_t speed_hz)
+RoboHubError pico_i2c_init(RoboHubI2C* self, rh_u32 speed_hz)
 {
     if (self == NULL || self->context == NULL) {
         return ROBOHUB_ERR_INVALID_ARG;
@@ -61,7 +61,7 @@ RoboHubError pico_i2c_init(RoboHubI2C* self, uint32_t speed_hz)
 }
 
 // @req PICO-0015
-RoboHubError pico_i2c_write(RoboHubI2C* self, uint8_t addr, const uint8_t* data, size_t len)
+RoboHubError pico_i2c_write(RoboHubI2C* self, rh_u8 addr, const rh_u8* data, rh_size len)
 {
     if (self == NULL || self->context == NULL || (data == NULL && len != 0u)) {
         return ROBOHUB_ERR_INVALID_ARG;
@@ -79,7 +79,7 @@ RoboHubError pico_i2c_write(RoboHubI2C* self, uint8_t addr, const uint8_t* data,
 }
 
 // @req PICO-0015
-RoboHubError pico_i2c_read(RoboHubI2C* self, uint8_t addr, uint8_t* data, size_t len)
+RoboHubError pico_i2c_read(RoboHubI2C* self, rh_u8 addr, rh_u8* data, rh_size len)
 {
     if (self == NULL || self->context == NULL || data == NULL) {
         return ROBOHUB_ERR_INVALID_ARG;
